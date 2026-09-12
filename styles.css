@@ -299,8 +299,69 @@ a { color: inherit; }
   color: var(--gray-neutral);
 }
 
-/* About / Contact */
-.about-section { background: var(--bg); }
+/* Tools */
+.tools-section { background: var(--bg); }
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.tile {
+  display: block;
+  background: #fff;
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.tile h3 {
+  margin: 10px 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.tile p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.tile-live:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(11, 35, 64, 0.14);
+  border-color: var(--blue);
+}
+
+.tile-placeholder {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tile-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--gray-neutral-bg);
+  color: var(--gray-neutral);
+}
+
+.tile-badge-live {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+/* Contact */
 .contact-section { background: var(--bg-alt); }
 
 .contact-links {
