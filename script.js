@@ -82,25 +82,30 @@ async function fetchNews(query) {
 
   // Primary: rss2json.com is a CORS-enabled RSS-to-JSON service built for
   // browser use (sends Access-Control-Allow-Origin: *), so no proxy needed.
-  try {
-    const res = await fetch(RSS2JSON_ENDPOINT + encodeURIComponent(rssUrl));
-    if (!res.ok) throw new Error(`rss2json responded with ${res.status}`);
-    const data = await res.json();
-    if (data.status !== "ok") throw new Error(data.message || "rss2json error");
-    const items = (data.items || []).slice(0, 12).map((item) => {
-      const decodedTitle = decodeEntities(item.title);
-      const { title, source: parsedSource } = stripSource(decodedTitle);
-      return {
-        title,
-        source: item.author || parsedSource || guessSource(item.link),
-        link: item.link,
-        pubDate: item.pubDate,
-      };
-    });
-    if (items.length > 0) return items;
-    lastError = new Error("No items returned");
-  } catch (err) {
-    lastError = err;
+  // rss2json's free tier occasionally throws a transient 500 under load, so
+  // retry a couple of times with a short backoff before falling through.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(RSS2JSON_ENDPOINT + encodeURIComponent(rssUrl));
+      if (!res.ok) throw new Error(`rss2json responded with ${res.status}`);
+      const data = await res.json();
+      if (data.status !== "ok") throw new Error(data.message || "rss2json error");
+      const items = (data.items || []).slice(0, 12).map((item) => {
+        const decodedTitle = decodeEntities(item.title);
+        const { title, source: parsedSource } = stripSource(decodedTitle);
+        return {
+          title,
+          source: item.author || parsedSource || guessSource(item.link),
+          link: item.link,
+          pubDate: item.pubDate,
+        };
+      });
+      if (items.length > 0) return items;
+      lastError = new Error("No items returned");
+    } catch (err) {
+      lastError = err;
+      if (attempt < 2) await sleep(600 * (attempt + 1));
+    }
   }
 
   // Fallback: fetch the raw RSS XML through a generic CORS proxy.
@@ -129,6 +134,10 @@ function stripSource(rawTitle) {
     title: rawTitle.slice(0, dashIndex).trim(),
     source: rawTitle.slice(dashIndex + 3).trim(),
   };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function decodeEntities(str) {
