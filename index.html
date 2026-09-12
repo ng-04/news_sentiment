@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ng-04</title>
+<meta name="description" content="ng-04 — personal site with a live Indian stock news sentiment analyzer." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="#home" class="brand">ng-04</a>
+    <nav class="nav">
+      <a href="#home">Home</a>
+      <a href="#sentiment">Stock Sentiment</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section id="home" class="hero">
+    <div class="container">
+      <p class="eyebrow">Personal Site</p>
+      <h1>ng-04</h1>
+      <p class="lead">Building small tools that turn noisy data into quick, readable signal.</p>
+      <a href="#sentiment" class="btn btn-primary">Try the Stock Sentiment Analyzer</a>
+    </div>
+  </section>
+
+  <section id="sentiment" class="section sentiment-section">
+    <div class="container">
+      <p class="eyebrow">Live Tool</p>
+      <h2>Indian Stock News Sentiment</h2>
+      <p class="section-lead">
+        Enter an Indian stock or company name. This pulls recent headlines from Google News and scores each one
+        with a lightweight positive/negative word-based sentiment model, then rolls it up into a net score.
+      </p>
+
+      <div class="search-card">
+        <form id="sentiment-form" autocomplete="off">
+          <input
+            id="stock-input"
+            type="text"
+            placeholder="e.g. Reliance, TCS, Infosys, HDFC Bank"
+            aria-label="Indian stock or company name"
+            required
+          />
+          <button type="submit" class="btn btn-primary" id="search-btn">Analyze</button>
+        </form>
+        <p class="disclaimer">
+          Heuristic word-list sentiment on public headlines — for demonstration only, not financial advice.
+        </p>
+      </div>
+
+      <div id="results" class="results" hidden>
+        <div class="score-card" id="score-card">
+          <div class="score-value" id="score-value">—</div>
+          <div class="score-label" id="score-label">Net Sentiment</div>
+          <div class="score-meta" id="score-meta"></div>
+        </div>
+        <ul class="article-list" id="article-list"></ul>
+      </div>
+
+      <div id="status" class="status" hidden></div>
+    </div>
+  </section>
+
+  <section id="about" class="section about-section">
+    <div class="container">
+      <p class="eyebrow">About</p>
+      <h2>About ng-04</h2>
+      <p class="section-lead">
+        I like building focused, useful tools — this site's sentiment analyzer is one example: a small,
+        self-contained way to get a quick pulse on how the news is talking about a stock before digging deeper.
+      </p>
+    </div>
+  </section>
+
+  <section id="contact" class="section contact-section">
+    <div class="container">
+      <p class="eyebrow">Contact</p>
+      <h2>Get in touch</h2>
+      <div class="contact-links">
+        <a href="https://github.com/ng-04" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>&copy; <span id="year"></span> ng-04. Built and hosted with GitHub Pages.</p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
