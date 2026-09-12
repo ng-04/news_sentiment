@@ -1,38 +1,18 @@
+import { VaderSentiment, loadFinvaderLexicon } from "./vader.js";
+
 document.getElementById("year").textContent = new Date().getFullYear();
 
-const POSITIVE_WORDS = [
-  "surge", "surges", "surged", "rally", "rallies", "rallied", "jump", "jumps", "jumped",
-  "soar", "soars", "soared", "gain", "gains", "gained", "gainer", "rise", "rises", "risen",
-  "rising", "climb", "climbs", "climbed", "growth", "grows", "grew", "profit", "profits",
-  "profitable", "beat", "beats", "beating", "outperform", "outperforms", "bullish", "upgrade",
-  "upgrades", "upgraded", "record", "high", "highs", "strong", "stronger", "strength",
-  "expansion", "expands", "expanded", "dividend", "dividends", "buyback", "buy", "positive",
-  "optimism", "optimistic", "boost", "boosts", "boosted", "recovery", "recovers", "recovered",
-  "milestone", "success", "successful", "win", "wins", "won", "upbeat", "top", "tops", "topped",
-  "raise", "raises", "raised", "improve", "improves", "improved", "improvement", "robust",
-  "breakthrough", "leading", "leader", "innovation", "innovative", "acquire", "acquisition",
-  "partnership", "deal", "contract", "order", "orders", "stake", "invest", "investment",
-  "invests", "invested", "funding", "funded", "listing", "ipo", "surplus", "exceed", "exceeds",
-  "exceeded"
-];
+// Positive/negative classification follows VADER's own convention:
+// compound >= 0.05 is positive, <= -0.05 is negative, otherwise neutral.
+const POSITIVE_THRESHOLD = 0.05;
+const NEGATIVE_THRESHOLD = -0.05;
 
-const NEGATIVE_WORDS = [
-  "fall", "falls", "fell", "falling", "drop", "drops", "dropped", "decline", "declines",
-  "declined", "plunge", "plunges", "plunged", "slump", "slumps", "slumped", "crash", "crashes",
-  "crashed", "loss", "losses", "loser", "bearish", "downgrade", "downgrades", "downgraded",
-  "weak", "weaker", "weakness", "miss", "misses", "missed", "cut", "cuts", "layoff", "layoffs",
-  "fraud", "probe", "scam", "lawsuit", "penalty", "penalties", "fine", "fined", "debt", "default",
-  "recession", "slowdown", "slows", "slowed", "warning", "warns", "warned", "risk", "risks",
-  "risky", "concern", "concerns", "concerned", "negative", "pessimism", "pessimistic", "slide",
-  "slides", "slid", "tumble", "tumbles", "tumbled", "sell-off", "selloff", "resign", "resigns",
-  "resigned", "resignation", "scandal", "controversy", "sued", "sues", "suing", "ban", "banned",
-  "shutdown", "closure", "bankrupt", "bankruptcy", "shortfall", "underperform", "underperforms",
-  "delay", "delays", "delayed", "strike", "protest", "dispute", "volatile", "volatility",
-  "uncertainty", "uncertain", "trouble", "troubled", "crisis", "cautious", "caution"
-];
-
-const POS_SET = new Set(POSITIVE_WORDS);
-const NEG_SET = new Set(NEGATIVE_WORDS);
+const analyzerReady = loadFinvaderLexicon()
+  .then((lexicon) => new VaderSentiment(lexicon))
+  .catch((err) => {
+    console.error("Failed to load sentiment lexicon", err);
+    return null;
+  });
 
 const RSS2JSON_ENDPOINT = "https://api.rss2json.com/v1/api.json?rss_url=";
 const XML_PROXIES = [
@@ -62,6 +42,12 @@ async function runSearch(query) {
   showStatus(`Searching recent news for "${query}"…`, false);
 
   try {
+    const analyzer = await analyzerReady;
+    if (!analyzer) {
+      showStatus("Sentiment model failed to load. Please refresh the page and try again.", true);
+      return;
+    }
+
     const items = await fetchNews(query);
 
     if (items.length === 0) {
@@ -71,7 +57,7 @@ async function runSearch(query) {
 
     const scored = items.map((item) => ({
       ...item,
-      score: scoreSentiment(`${item.title} ${item.source || ""}`),
+      score: analyzer.polarityScores(item.title).compound,
     }));
 
     renderResults(query, scored);
@@ -185,42 +171,31 @@ function parseRss(xmlText) {
   });
 }
 
-function scoreSentiment(text) {
-  const words = text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s'-]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
-  let score = 0;
-  for (const word of words) {
-    if (POS_SET.has(word)) score += 1;
-    if (NEG_SET.has(word)) score -= 1;
-  }
-  return score;
-}
-
 function renderResults(query, scored) {
-  const netScore = scored.reduce((sum, a) => sum + a.score, 0);
-  const avg = netScore / scored.length;
+  const avg = scored.reduce((sum, a) => sum + a.score, 0) / scored.length;
 
   let label = "Neutral";
-  if (avg >= 0.6) label = "Strongly Positive";
-  else if (avg > 0.15) label = "Positive";
-  else if (avg <= -0.6) label = "Strongly Negative";
-  else if (avg < -0.15) label = "Negative";
+  if (avg >= 0.5) label = "Strongly Positive";
+  else if (avg >= POSITIVE_THRESHOLD) label = "Positive";
+  else if (avg <= -0.5) label = "Strongly Negative";
+  else if (avg <= NEGATIVE_THRESHOLD) label = "Negative";
 
-  scoreValueEl.textContent = (netScore > 0 ? "+" : "") + netScore;
+  scoreValueEl.textContent = (avg > 0 ? "+" : "") + avg.toFixed(3);
   scoreLabelEl.textContent = `Net Sentiment for "${query}" — ${label}`;
 
-  const posCount = scored.filter((a) => a.score > 0).length;
-  const negCount = scored.filter((a) => a.score < 0).length;
+  const posCount = scored.filter((a) => a.score >= POSITIVE_THRESHOLD).length;
+  const negCount = scored.filter((a) => a.score <= NEGATIVE_THRESHOLD).length;
   const neuCount = scored.length - posCount - negCount;
-  scoreMetaEl.textContent = `Based on ${scored.length} recent headlines — ${posCount} positive, ${negCount} negative, ${neuCount} neutral.`;
+  scoreMetaEl.textContent = `Based on ${scored.length} recent headlines (FinVADER compound score, avg -1 to +1) — ${posCount} positive, ${negCount} negative, ${neuCount} neutral.`;
 
   articleListEl.innerHTML = "";
   for (const article of scored) {
-    const tone = article.score > 0 ? "positive" : article.score < 0 ? "negative" : "neutral";
+    const tone =
+      article.score >= POSITIVE_THRESHOLD
+        ? "positive"
+        : article.score <= NEGATIVE_THRESHOLD
+        ? "negative"
+        : "neutral";
     const li = document.createElement("li");
     li.className = `article-item ${tone}`;
 
@@ -238,7 +213,7 @@ function renderResults(query, scored) {
         <a class="article-title" href="${escapeAttr(article.link)}" target="_blank" rel="noopener">
           ${escapeHtml(article.title)}
         </a>
-        <span class="tag ${tone}">${tone}</span>
+        <span class="tag ${tone}">${tone} ${article.score >= 0 ? "+" : ""}${article.score.toFixed(2)}</span>
       </div>
       <div class="article-meta">${escapeHtml(article.source || "")}${
       article.source && dateStr ? " · " : ""

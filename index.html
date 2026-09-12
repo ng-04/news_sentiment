@@ -40,7 +40,8 @@
       <h2>Indian Stock News Sentiment</h2>
       <p class="section-lead">
         Enter an Indian stock or company name. This pulls recent headlines from Google News and scores each one
-        with a lightweight positive/negative word-based sentiment model, then rolls it up into a net score.
+        with FinVADER — a finance-tuned extension of the VADER sentiment model — then rolls the results up into
+        a net score.
       </p>
 
       <div class="search-card">
@@ -55,7 +56,7 @@
           <button type="submit" class="btn btn-primary" id="search-btn">Analyze</button>
         </form>
         <p class="disclaimer">
-          Heuristic word-list sentiment on public headlines — for demonstration only, not financial advice.
+          FinVADER sentiment scoring on public headlines — for demonstration only, not financial advice.
         </p>
       </div>
 
@@ -100,6 +101,6 @@
   </div>
 </footer>
 
-<script src="script.js"></script>
+<script type="module" src="script.js"></script>
 </body>
 </html>
