@@ -89,6 +89,13 @@
         <p class="disclaimer">
           FinVADER sentiment scoring on public headlines — for demonstration only, not financial advice.
         </p>
+        <p class="footnote">
+          News is fetched via rss2json.com's free tier without an API key (no signup needed). Their
+          documented free-plan limit is 10,000 requests/day per account, but this no-key usage is
+          shared across everyone using it this way rather than tracked per account, so it's more prone
+          to occasional throttling under load. The app automatically retries a few times before showing
+          an error — if a search still fails, waiting a minute and trying again usually works.
+        </p>
       </div>
 
       <div id="results" class="results" hidden>

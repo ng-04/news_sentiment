@@ -196,6 +196,15 @@ a { color: inherit; }
   color: var(--gray-neutral);
 }
 
+.footnote {
+  margin: 8px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-100);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--gray-neutral);
+}
+
 .status {
   padding: 16px 20px;
   border-radius: 8px;
