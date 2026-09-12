@@ -175,8 +175,13 @@ a { color: inherit; }
   flex-wrap: wrap;
 }
 
-#stock-input {
+.autocomplete {
+  position: relative;
   flex: 1 1 280px;
+}
+
+#stock-input {
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--gray-300);
   border-radius: 8px;
@@ -188,6 +193,55 @@ a { color: inherit; }
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+}
+
+.suggestion-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--gray-100);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(11, 35, 64, 0.16);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.suggestion-item .suggestion-symbol {
+  color: var(--gray-neutral);
+  font-size: 0.8rem;
+  margin-left: 6px;
+}
+
+.suggestion-item:hover,
+.suggestion-item.active {
+  background: var(--bg-alt);
+}
+
+.suggestion-item mark {
+  background: none;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.input-error {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--red);
 }
 
 .disclaimer {

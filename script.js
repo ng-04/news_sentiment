@@ -1,4 +1,5 @@
 import { VaderSentiment, loadFinvaderLexicon } from "./vader.js";
+import { initStockAutocomplete } from "./autocomplete.js";
 
 document.getElementById("year").textContent = new Date().getFullYear();
 
@@ -21,6 +22,8 @@ const XML_PROXIES = [
 
 const form = document.getElementById("sentiment-form");
 const input = document.getElementById("stock-input");
+const suggestionList = document.getElementById("suggestion-list");
+const inputError = document.getElementById("input-error");
 const searchBtn = document.getElementById("search-btn");
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
@@ -29,11 +32,23 @@ const scoreValueEl = document.getElementById("score-value");
 const scoreLabelEl = document.getElementById("score-label");
 const scoreMetaEl = document.getElementById("score-meta");
 
+const autocomplete = initStockAutocomplete({
+  input,
+  list: suggestionList,
+  error: inputError,
+});
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const query = input.value.trim();
-  if (!query) return;
-  await runSearch(query);
+  const stock = autocomplete.resolve();
+  if (!stock) {
+    autocomplete.showError(
+      "Please choose a valid NSE-listed stock from the suggestions before analyzing."
+    );
+    return;
+  }
+  autocomplete.clearError();
+  await runSearch(stock.name);
 });
 
 async function runSearch(query) {

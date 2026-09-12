@@ -70,22 +70,30 @@
       <p class="eyebrow">Live Tool</p>
       <h2>Indian Stock News Sentiment</h2>
       <p class="section-lead">
-        Enter an Indian stock or company name. This pulls recent headlines from Google News and scores each one
-        with FinVADER — a finance-tuned extension of the VADER sentiment model — then rolls the results up into
+        Pick an NSE-listed stock. This pulls recent headlines from Google News and scores each one with
+        FinVADER — a finance-tuned extension of the VADER sentiment model — then rolls the results up into
         a net score.
       </p>
 
       <div class="search-card">
         <form id="sentiment-form" autocomplete="off">
-          <input
-            id="stock-input"
-            type="text"
-            placeholder="e.g. Reliance, TCS, Infosys, HDFC Bank"
-            aria-label="Indian stock or company name"
-            required
-          />
+          <div class="autocomplete" id="autocomplete-wrap">
+            <input
+              id="stock-input"
+              type="text"
+              placeholder="e.g. Reliance, TCS, Infosys, HDFC Bank"
+              aria-label="Indian stock or company name"
+              role="combobox"
+              aria-expanded="false"
+              aria-autocomplete="list"
+              aria-controls="suggestion-list"
+              required
+            />
+            <ul class="suggestion-list" id="suggestion-list" role="listbox" hidden></ul>
+          </div>
           <button type="submit" class="btn btn-primary" id="search-btn">Analyze</button>
         </form>
+        <p class="input-error" id="input-error" hidden></p>
         <p class="disclaimer">
           FinVADER sentiment scoring on public headlines — for demonstration only, not financial advice.
         </p>
