@@ -3,6 +3,7 @@ import { initStockAutocomplete } from "./autocomplete.js";
 import { fetchDailyPriceSeries } from "./yahoo.js";
 import { computeCorrelation } from "./correlation.js";
 import { dateKeyFromPubDate, todayKey, addDaysToKey } from "./dates.js";
+import { renderPriceChart } from "./chart.js";
 
 document.getElementById("year").textContent = new Date().getFullYear();
 
@@ -38,6 +39,7 @@ const summarySentimentEl = document.getElementById("summary-sentiment");
 const summaryHorizonMoveEl = document.getElementById("summary-horizon-move");
 const summaryNextDayMoveEl = document.getElementById("summary-nextday-move");
 const summaryNoteEl = document.getElementById("summary-note");
+const priceChartEl = document.getElementById("price-chart");
 
 const autocomplete = initStockAutocomplete({
   input,
@@ -111,7 +113,7 @@ async function runSearch(stock, horizonDays) {
       ? computeCorrelation(scored, priceSeries, horizonStartKey)
       : computeCorrelation(scored, [], horizonStartKey);
 
-    renderResults(stock, horizonDays, scored, correlation, priceError);
+    renderResults(stock, horizonDays, scored, correlation, priceError, priceSeries, horizonStartKey);
     hideStatus();
   } catch (err) {
     console.error(err);
@@ -275,7 +277,12 @@ function formatPct(value) {
   return (value > 0 ? "+" : "") + value.toFixed(2) + "%";
 }
 
-function renderResults(stock, horizonDays, scored, correlation, priceError) {
+function renderResults(stock, horizonDays, scored, correlation, priceError, priceSeries, horizonStartKey) {
+  // Unhide before measuring/drawing the chart below — an SVG sized off
+  // container.clientWidth while the section is still `hidden` would read 0
+  // and fall back to a mismatched default width.
+  resultsEl.hidden = false;
+
   summaryStockEl.textContent = stock.name;
   summaryCountEl.textContent = String(correlation.headlineCount);
 
@@ -308,6 +315,9 @@ function renderResults(stock, horizonDays, scored, correlation, priceError) {
   summaryNoteEl.textContent = notes.join(" ");
   summaryNoteEl.hidden = notes.length === 0;
 
+  const chartSeries = (priceSeries || []).filter((p) => p.date >= horizonStartKey);
+  renderPriceChart(priceChartEl, chartSeries, `${stock.symbol}.NS closing price — last ${horizonDays} days`);
+
   articleListEl.innerHTML = "";
   for (const article of scored) {
     const tone =
@@ -336,8 +346,6 @@ function renderResults(stock, horizonDays, scored, correlation, priceError) {
     `;
     articleListEl.appendChild(li);
   }
-
-  resultsEl.hidden = false;
 }
 
 function setLoading(isLoading) {
