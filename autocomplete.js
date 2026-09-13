@@ -1,25 +1,19 @@
-let stocksPromise = null;
-
-function loadStocks() {
-  if (!stocksPromise) {
-    stocksPromise = fetch("nse-stocks.json").then((res) => {
-      if (!res.ok) throw new Error(`Failed to load stock list (${res.status})`);
-      return res.json();
-    });
-  }
-  return stocksPromise;
-}
+import { loadStockList, findStock } from "./stocks.js";
 
 const MAX_SUGGESTIONS = 8;
 
-export function initStockAutocomplete({ input, list, error }) {
+// A typeahead that ADDS a stock via `onSelect` (click, Enter-on-highlighted,
+// or Enter with text that exactly matches a listed name/symbol) rather than
+// resolving a single value at form-submit time — the caller owns the list of
+// selected stocks (for the compare-mode chip UI) and decides what counts as
+// "already selected" / "no room left" via `isSelected` / `isFull`.
+export function initStockAutocomplete({ input, list, error, onSelect, isSelected, isFull }) {
   let stocks = [];
-  let selected = null;
   let currentMatches = [];
   let activeIndex = -1;
   let debounceTimer = null;
 
-  loadStocks()
+  const stocksReady = loadStockList()
     .then((data) => {
       stocks = data;
     })
@@ -59,7 +53,7 @@ export function initStockAutocomplete({ input, list, error }) {
 
   function renderMatches(query) {
     const q = query.trim().toLowerCase();
-    if (!q || stocks.length === 0) {
+    if (!q || stocks.length === 0 || isFull()) {
       closeList();
       return;
     }
@@ -67,6 +61,7 @@ export function initStockAutocomplete({ input, list, error }) {
     const starts = [];
     const contains = [];
     for (const s of stocks) {
+      if (isSelected(s)) continue;
       const nameLower = s.name.toLowerCase();
       const symbolLower = s.symbol.toLowerCase();
       if (nameLower.startsWith(q) || symbolLower.startsWith(q)) {
@@ -103,35 +98,44 @@ export function initStockAutocomplete({ input, list, error }) {
     items.forEach((el, i) => el.classList.toggle("active", i === activeIndex));
   }
 
-  function selectStock(stock) {
-    selected = stock;
-    input.value = stock.name;
+  function pick(stock) {
     clearError();
     closeList();
+    input.value = "";
+    onSelect(stock);
   }
 
   input.addEventListener("input", () => {
-    selected = null;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => renderMatches(input.value), 120);
   });
 
   input.addEventListener("keydown", (e) => {
-    if (list.hidden) return;
-    const items = list.querySelectorAll(".suggestion-item");
-
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" && !list.hidden) {
       e.preventDefault();
+      const items = list.querySelectorAll(".suggestion-item");
       activeIndex = Math.min(activeIndex + 1, items.length - 1);
       updateActiveHighlight(items);
-    } else if (e.key === "ArrowUp") {
+    } else if (e.key === "ArrowUp" && !list.hidden) {
       e.preventDefault();
+      const items = list.querySelectorAll(".suggestion-item");
       activeIndex = Math.max(activeIndex - 1, 0);
       updateActiveHighlight(items);
     } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (isFull()) {
+        showError("You've already picked the maximum of 3 stocks.");
+        return;
+      }
       if (activeIndex >= 0 && currentMatches[activeIndex]) {
-        e.preventDefault();
-        selectStock(currentMatches[activeIndex]);
+        pick(currentMatches[activeIndex]);
+        return;
+      }
+      const exact = findStock(stocks, input.value);
+      if (exact && !isSelected(exact)) {
+        pick(exact);
+      } else if (input.value.trim()) {
+        showError("Please choose a valid NSE-listed stock from the suggestions.");
       }
     } else if (e.key === "Escape") {
       closeList();
@@ -143,29 +147,19 @@ export function initStockAutocomplete({ input, list, error }) {
     if (!li) return;
     e.preventDefault();
     const idx = Number(li.dataset.index);
-    selectStock(currentMatches[idx]);
+    pick(currentMatches[idx]);
   });
 
   document.addEventListener("click", (e) => {
     if (!input.contains(e.target) && !list.contains(e.target)) closeList();
   });
 
-  function resolve() {
-    const typed = input.value.trim();
-    if (!typed) return null;
-    if (selected && selected.name.toLowerCase() === typed.toLowerCase()) {
-      return selected;
-    }
-    return (
-      stocks.find(
-        (s) =>
-          s.name.toLowerCase() === typed.toLowerCase() ||
-          s.symbol.toLowerCase() === typed.toLowerCase()
-      ) || null
-    );
-  }
-
-  return { resolve, showError, clearError };
+  return {
+    clearError,
+    showError,
+    ready: stocksReady,
+    findExact: (query) => findStock(stocks, query),
+  };
 }
 
 function escapeHtml(str) {

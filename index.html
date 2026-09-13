@@ -9,6 +9,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css" />
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem("theme");
+      if (saved === "dark" || saved === "light") {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+    } catch (e) {}
+  })();
+</script>
 </head>
 <body>
 
@@ -19,6 +29,7 @@
       <a href="#home">Home</a>
       <a href="#tools">Tools</a>
       <a href="#contact">Contact</a>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">Dark mode</button>
     </nav>
   </div>
 </header>
@@ -70,24 +81,24 @@
       <p class="eyebrow">Live Tool</p>
       <h2>Indian Stock News Sentiment</h2>
       <p class="section-lead">
-        Pick an NSE-listed stock and a horizon. This pulls recent headlines from Google News, scores each
-        one with FinVADER — a finance-tuned extension of the VADER sentiment model — and compares the
-        net sentiment against how the stock actually moved over that window.
+        Pick up to 3 NSE-listed stocks and a horizon to compare. This pulls recent headlines from Google
+        News, scores each one with FinVADER — a finance-tuned extension of the VADER sentiment model — and
+        compares the net sentiment against how each stock actually moved over that window.
       </p>
 
       <div class="search-card">
+        <ul class="stock-chips" id="stock-chips" hidden></ul>
         <form id="sentiment-form" autocomplete="off">
           <div class="autocomplete" id="autocomplete-wrap">
             <input
               id="stock-input"
               type="text"
               placeholder="e.g. Reliance, TCS, Infosys, HDFC Bank"
-              aria-label="Indian stock or company name"
+              aria-label="Add an Indian stock or company name (up to 3)"
               role="combobox"
               aria-expanded="false"
               aria-autocomplete="list"
               aria-controls="suggestion-list"
-              required
             />
             <ul class="suggestion-list" id="suggestion-list" role="listbox" hidden></ul>
           </div>
@@ -118,6 +129,10 @@
       </div>
 
       <div id="results" class="results" hidden>
+        <div class="results-toolbar">
+          <button type="button" class="btn-link" id="copy-link-btn">Copy link to this result</button>
+          <span class="copy-link-confirm" id="copy-link-confirm" hidden>Link copied</span>
+        </div>
         <div class="summary-table-wrap">
           <table class="summary-table">
             <thead>
@@ -129,20 +144,12 @@
                 <th>Stock movement – Next day</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td id="summary-stock"></td>
-                <td id="summary-count"></td>
-                <td id="summary-sentiment"></td>
-                <td id="summary-horizon-move"></td>
-                <td id="summary-nextday-move"></td>
-              </tr>
-            </tbody>
+            <tbody id="summary-body"></tbody>
           </table>
         </div>
         <p class="summary-note" id="summary-note" hidden></p>
         <div class="chart-card" id="price-chart"></div>
-        <ul class="article-list" id="article-list"></ul>
+        <div id="article-groups"></div>
       </div>
 
       <div id="status" class="status" hidden></div>
