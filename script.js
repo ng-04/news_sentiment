@@ -1,5 +1,8 @@
 import { VaderSentiment, loadFinvaderLexicon } from "./vader.js";
 import { initStockAutocomplete } from "./autocomplete.js";
+import { fetchDailyPriceSeries } from "./yahoo.js";
+import { computeCorrelation } from "./correlation.js";
+import { dateKeyFromPubDate, todayKey, addDaysToKey } from "./dates.js";
 
 document.getElementById("year").textContent = new Date().getFullYear();
 
@@ -24,13 +27,17 @@ const form = document.getElementById("sentiment-form");
 const input = document.getElementById("stock-input");
 const suggestionList = document.getElementById("suggestion-list");
 const inputError = document.getElementById("input-error");
+const horizonSelect = document.getElementById("horizon-select");
 const searchBtn = document.getElementById("search-btn");
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 const articleListEl = document.getElementById("article-list");
-const scoreValueEl = document.getElementById("score-value");
-const scoreLabelEl = document.getElementById("score-label");
-const scoreMetaEl = document.getElementById("score-meta");
+const summaryStockEl = document.getElementById("summary-stock");
+const summaryCountEl = document.getElementById("summary-count");
+const summarySentimentEl = document.getElementById("summary-sentiment");
+const summaryHorizonMoveEl = document.getElementById("summary-horizon-move");
+const summaryNextDayMoveEl = document.getElementById("summary-nextday-move");
+const summaryNoteEl = document.getElementById("summary-note");
 
 const autocomplete = initStockAutocomplete({
   input,
@@ -48,13 +55,14 @@ form.addEventListener("submit", async (e) => {
     return;
   }
   autocomplete.clearError();
-  await runSearch(stock.name);
+  const horizonDays = Number(horizonSelect.value);
+  await runSearch(stock, horizonDays);
 });
 
-async function runSearch(query) {
+async function runSearch(stock, horizonDays) {
   setLoading(true);
   hideResults();
-  showStatus(`Searching recent news for "${query}"…`, false);
+  showStatus(`Searching recent news for "${stock.name}"…`, false);
 
   try {
     const analyzer = await analyzerReady;
@@ -63,19 +71,47 @@ async function runSearch(query) {
       return;
     }
 
-    const items = await fetchNews(query);
+    const items = await fetchNews(stock.symbol);
 
     if (items.length === 0) {
-      showStatus(`No recent news articles found for "${query}". Try a different name.`, false);
+      showStatus(`No recent news articles found for "${stock.name}". Try a different name.`, false);
       return;
     }
 
-    const scored = items.map((item) => ({
-      ...item,
-      score: analyzer.polarityScores(item.title).compound,
-    }));
+    const horizonStartKey = addDaysToKey(todayKey(), -horizonDays);
+    const scored = items
+      .map((item) => ({
+        ...item,
+        date: dateKeyFromPubDate(item.pubDate),
+        score: analyzer.polarityScores(item.title).compound,
+      }))
+      .filter((item) => item.date && item.date >= horizonStartKey)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-    renderResults(query, scored);
+    if (scored.length === 0) {
+      showStatus(
+        `Found news for "${stock.name}", but none within the last ${horizonDays} days. Try a longer horizon.`,
+        false
+      );
+      return;
+    }
+
+    showStatus(`Fetching ${stock.symbol}.NS price history…`, false);
+
+    let priceSeries = null;
+    let priceError = null;
+    try {
+      priceSeries = await fetchDailyPriceSeries(stock.symbol);
+    } catch (err) {
+      console.error(err);
+      priceError = err;
+    }
+
+    const correlation = priceSeries
+      ? computeCorrelation(scored, priceSeries, horizonStartKey)
+      : computeCorrelation(scored, [], horizonStartKey);
+
+    renderResults(stock, horizonDays, scored, correlation, priceError);
     hideStatus();
   } catch (err) {
     console.error(err);
@@ -155,6 +191,25 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// rss2json's pubDate ("2026-09-09 04:42:36") is UTC but has no timezone
+// marker, so it must be normalized before parsing — see dates.js for why
+// a bare Date.parse on this format would silently misread it as local time.
+function formatPubDate(pubDateStr) {
+  let iso = pubDateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(iso)) {
+    iso = iso.replace(" ", "T") + "Z";
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function decodeEntities(str) {
   const el = document.createElement("textarea");
   el.innerHTML = str;
@@ -195,22 +250,63 @@ function parseRss(xmlText) {
   });
 }
 
-function renderResults(query, scored) {
-  const avg = scored.reduce((sum, a) => sum + a.score, 0) / scored.length;
+function toneFor(value) {
+  if (value == null) return "neutral";
+  if (value >= POSITIVE_THRESHOLD) return "positive";
+  if (value <= NEGATIVE_THRESHOLD) return "negative";
+  return "neutral";
+}
 
-  let label = "Neutral";
-  if (avg >= 0.5) label = "Strongly Positive";
-  else if (avg >= POSITIVE_THRESHOLD) label = "Positive";
-  else if (avg <= -0.5) label = "Strongly Negative";
-  else if (avg <= NEGATIVE_THRESHOLD) label = "Negative";
+function sentimentLabel(avg) {
+  if (avg >= 0.5) return "Strongly Positive";
+  if (avg >= POSITIVE_THRESHOLD) return "Positive";
+  if (avg <= -0.5) return "Strongly Negative";
+  if (avg <= NEGATIVE_THRESHOLD) return "Negative";
+  return "Neutral";
+}
 
-  scoreValueEl.textContent = (avg > 0 ? "+" : "") + avg.toFixed(3);
-  scoreLabelEl.textContent = `Net Sentiment for "${query}" — ${label}`;
+function formatSigned(value, digits) {
+  if (value == null) return "—";
+  return (value > 0 ? "+" : "") + value.toFixed(digits);
+}
 
-  const posCount = scored.filter((a) => a.score >= POSITIVE_THRESHOLD).length;
-  const negCount = scored.filter((a) => a.score <= NEGATIVE_THRESHOLD).length;
-  const neuCount = scored.length - posCount - negCount;
-  scoreMetaEl.textContent = `Based on ${scored.length} recent headlines (FinVADER compound score, avg -1 to +1) — ${posCount} positive, ${negCount} negative, ${neuCount} neutral.`;
+function formatPct(value) {
+  if (value == null) return "—";
+  return (value > 0 ? "+" : "") + value.toFixed(2) + "%";
+}
+
+function renderResults(stock, horizonDays, scored, correlation, priceError) {
+  summaryStockEl.textContent = stock.name;
+  summaryCountEl.textContent = String(correlation.headlineCount);
+
+  const sentimentTone = toneFor(correlation.netSentiment);
+  summarySentimentEl.textContent =
+    correlation.netSentiment == null
+      ? "—"
+      : `${formatSigned(correlation.netSentiment, 3)} ${sentimentLabel(correlation.netSentiment)}`;
+  summarySentimentEl.className = sentimentTone;
+
+  const horizonMoveTone = toneFor(correlation.movementHorizonPct);
+  summaryHorizonMoveEl.textContent = formatPct(correlation.movementHorizonPct);
+  summaryHorizonMoveEl.className = horizonMoveTone;
+
+  const nextDayTone = toneFor(correlation.nextDayAvgPct);
+  summaryNextDayMoveEl.textContent = formatPct(correlation.nextDayAvgPct);
+  summaryNextDayMoveEl.className = nextDayTone;
+
+  const notes = [];
+  if (priceError) {
+    notes.push("Price data is unavailable right now, so movement columns show — until it can be fetched.");
+  } else if (correlation.movementHorizonPct == null) {
+    notes.push(`No trading data found within the last ${horizonDays} days.`);
+  }
+  if (!priceError && correlation.nextDaySampleSize < correlation.dateSentimentCount) {
+    notes.push(
+      "The next-day figure averages only the headline dates where a following trading day is already available."
+    );
+  }
+  summaryNoteEl.textContent = notes.join(" ");
+  summaryNoteEl.hidden = notes.length === 0;
 
   articleListEl.innerHTML = "";
   for (const article of scored) {
@@ -224,12 +320,7 @@ function renderResults(query, scored) {
     li.className = `article-item ${tone}`;
 
     const dateStr = article.pubDate
-      ? new Date(article.pubDate).toLocaleString("en-IN", {
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
+      ? formatPubDate(article.pubDate)
       : "";
 
     li.innerHTML = `

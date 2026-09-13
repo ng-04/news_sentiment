@@ -70,9 +70,9 @@
       <p class="eyebrow">Live Tool</p>
       <h2>Indian Stock News Sentiment</h2>
       <p class="section-lead">
-        Pick an NSE-listed stock. This pulls recent headlines from Google News and scores each one with
-        FinVADER — a finance-tuned extension of the VADER sentiment model — then rolls the results up into
-        a net score.
+        Pick an NSE-listed stock and a horizon. This pulls recent headlines from Google News, scores each
+        one with FinVADER — a finance-tuned extension of the VADER sentiment model — and compares the
+        net sentiment against how the stock actually moved over that window.
       </p>
 
       <div class="search-card">
@@ -91,27 +91,56 @@
             />
             <ul class="suggestion-list" id="suggestion-list" role="listbox" hidden></ul>
           </div>
+          <select id="horizon-select" aria-label="Horizon in days">
+            <option value="7" selected>Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
           <button type="submit" class="btn btn-primary" id="search-btn">Analyze</button>
         </form>
         <p class="input-error" id="input-error" hidden></p>
         <p class="disclaimer">
-          FinVADER sentiment scoring on public headlines — for demonstration only, not financial advice.
+          FinVADER sentiment scoring on public headlines and Yahoo Finance price data — for demonstration
+          only, not financial advice. Correlation from a handful of headlines is illustrative, not
+          statistically meaningful.
         </p>
         <p class="footnote">
           News is fetched via rss2json.com's free tier without an API key (no signup needed). Their
           documented free-plan limit is 10,000 requests/day per account, but this no-key usage is
           shared across everyone using it this way rather than tracked per account, so it's more prone
-          to occasional throttling under load. The app automatically retries a few times before showing
-          an error — if a search still fails, waiting a minute and trying again usually works.
+          to occasional throttling under load. Price data comes from Yahoo Finance's unofficial chart API
+          via a public proxy, since neither sends the headers browsers require for direct cross-site
+          requests. Both automatically retry a few times before showing an error — if a search still
+          fails, waiting a minute and trying again usually works. Google News RSS also only returns
+          around 10 recent headlines per stock, so longer horizons may show fewer headlines than you'd
+          expect rather than a full historical archive.
         </p>
       </div>
 
       <div id="results" class="results" hidden>
-        <div class="score-card" id="score-card">
-          <div class="score-value" id="score-value">—</div>
-          <div class="score-label" id="score-label">Net Sentiment</div>
-          <div class="score-meta" id="score-meta"></div>
+        <div class="summary-table-wrap">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Stock</th>
+                <th>Headline Count</th>
+                <th>Net Sentiment (horizon)</th>
+                <th>Stock movement (horizon)</th>
+                <th>Stock movement – Next day</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td id="summary-stock"></td>
+                <td id="summary-count"></td>
+                <td id="summary-sentiment"></td>
+                <td id="summary-horizon-move"></td>
+                <td id="summary-nextday-move"></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+        <p class="summary-note" id="summary-note" hidden></p>
         <ul class="article-list" id="article-list"></ul>
       </div>
 
