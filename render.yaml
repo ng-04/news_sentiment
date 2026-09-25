@@ -1,0 +1,20 @@
+# Render blueprint for the Local Q&A backend. The static site stays on GitHub Pages.
+services:
+  - type: web
+    name: local-qa-api
+    runtime: docker
+    plan: free
+    branch: main
+    dockerContext: ./local-qa/backend
+    dockerfilePath: ./local-qa/backend/Dockerfile
+    healthCheckPath: /api/qa/health
+    buildFilter:
+      paths:
+        - local-qa/backend/**
+    envVars:
+      - key: QA_ACCESS_PASSCODE
+        sync: false            # entered in the Render dashboard, never committed
+      - key: QA_TOKEN_SECRET
+        generateValue: true
+      - key: QA_ALLOWED_ORIGINS
+        value: https://ng-04.github.io,http://localhost:8000

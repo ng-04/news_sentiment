@@ -13,6 +13,7 @@ GitHub Pages and the LLM API key must stay server-side.
 | Embeddings | `fastembed` (ONNX) with `BAAI/bge-small-en-v1.5`, run locally | No per-call cost and no document text sent to a third party. Unlike `sentence-transformers` + PyTorch, it fits in Render's small-instance RAM. |
 | Vector index | In-memory FAISS (or NumPy cosine similarity) per session | Enough for v1's size limits and needs no database. |
 | LLM | Provider adapters: `anthropic` (official SDK), `openai` (official SDK), `gemini` (`google-genai`), and `openai_compatible` (OpenAI SDK with a custom `base_url`) | The user chooses the provider and model and supplies the key with each `/ask` request. The server has no key of its own. Every adapter has the same interface: `stream(system, messages, model, temperature, max_tokens)`. |
+| Streaming protocol | SSE events: `meta` (sources), `token`, `note` (caveats such as "temperature ignored"), `done` (`not_found`, `cited`), `error` | The first LLM event is fetched before the response starts, so key and model errors come back as normal HTTP errors. |
 | Hosting | Render web service (Docker) | Auto-deploys from `main`. Free-tier instances sleep when idle, which costs about 30s on the first request and wipes in-memory sessions. |
 
 ## Pipeline
@@ -24,8 +25,10 @@ GitHub Pages and the LLM API key must stay server-side.
    overlap. Each chunk keeps `{file_id, file_name, page | section, chunk_index, text}`.
 3. **Embed** the chunks in batches and add them to the session's index.
 4. **Ask.**
-   1. Build a standalone query from the question and the recent chat history.
-   2. Embed the query and retrieve the `top_k` chunks at or above `min_similarity`.
+   1. Embed the question. If there is chat history, blend in the previous user question
+      (75/25), so follow-ups like "what about last year?" still find the right passages.
+      This avoids an extra LLM call.
+   2. Search with the query vector and retrieve the `top_k` chunks at or above `min_similarity`.
       Use MMR when `diversify` is on.
    3. If nothing passes the threshold, return "not found in your documents" without
       calling the LLM.
@@ -82,7 +85,7 @@ requires `Authorization: Bearer <access_token>`. A session is identified by an o
 | Encrypted PDF / corrupt DOCX | Per-file `failed` with the reason. |
 | LLM timeout or 5xx | One retry with backoff, then `502` with a user-readable message. |
 | Missing, invalid or out-of-credit API key | `401`/`402` with code `invalid_api_key` / `api_key_no_credit`, normalized across providers, with the key redacted. |
-| Custom base URL is not `https`, or resolves to a private, loopback or link-local address | `400 base_url_not_allowed` (SSRF protection). The resolved address is checked again at connect time. |
+| Custom base URL is not `https`, or resolves to a private, loopback, link-local or otherwise non-public address | `400 base_url_not_allowed` (SSRF protection). Known limit: a DNS answer that changes between the check and the connection (rebinding) isn't caught. The passcode gate limits who can try. |
 | Unknown model for the chosen provider | `400 invalid_model`, passed through from the provider. |
 | Access token missing or expired | `401` with code `locked`. The frontend shows the passcode screen again. |
 | Session expired | `404` with code `session_expired`. The frontend starts a new session and asks the user to re-add files. |

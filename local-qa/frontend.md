@@ -66,6 +66,7 @@ no framework and no build step, with ES modules loaded from `index.html`.
 | F8 | Bot answers stream in token by token if the backend streams (SSE). Otherwise a typing indicator shows until the answer arrives. |
 | F9 | Inline citation markers `[1]` link to a **Sources** list under the answer. Each source shows the file name, page or section, and an expandable snippet of the retrieved chunk. |
 | F10 | A "not found in your documents" answer is styled differently from a normal answer. |
+| F10b | `note` events from the backend (e.g. "claude-opus-5 doesn't support temperature, so that setting was ignored", or "answer cut off at the length limit") appear as a small muted line under the answer. |
 | F11 | The last N turns (see config) are sent with each question so follow-up questions work. |
 | F12 | Errors (backend down or cold-starting, rate limit, expired access token, invalid or out-of-credit API key) are shown inline with a retry action and never fail silently. |
 
