@@ -1,0 +1,78 @@
+# Local Q&A — Configuration
+
+The single source of truth for every tunable value. The backend loads this schema in
+`app/config.py` and serves it at `GET /api/qa/config`, and the frontend builds the
+settings panel from that response.
+
+**User-facing** parameters appear in the Advanced settings panel. **Server** parameters
+are set by the operator through environment variables and are never exposed.
+
+## User-facing: answer generation (apply to the next question)
+
+| Key | Default | Range / values | What it does |
+|---|---|---|---|
+| `temperature` | `0.2` | 0.0 – 1.0 | Lower values stick closely to the documents' wording. Higher values give freer phrasing. |
+| `max_answer_tokens` | `800` | 100 – 2000 | Upper bound on answer length. |
+| `answer_style` | `concise` | `concise`, `detailed`, `bullet_points` | Adds a style instruction to the system prompt. |
+| `provider` | `anthropic` | `anthropic`, `openai`, `gemini`, `openai_compatible` | Which LLM service answers. |
+| `model` | `claude-sonnet-5` for Anthropic; otherwise the user enters it | Free text, up to 100 characters | The model name as the provider spells it. The UI suggests `claude-sonnet-5` / `claude-haiku-4-5` for Anthropic. |
+| `base_url` | — | `https` URL, only when `provider = openai_compatible` | For example Groq, Mistral, OpenRouter, DeepSeek or Together endpoints. |
+| `history_turns` | `4` | 0 – 10 | How many earlier Q&A turns are sent for follow-up context. |
+| `strict_grounding` | `true` | boolean | When on, the bot refuses to answer from general knowledge. |
+
+## User-facing: retrieval (apply to the next question)
+
+| Key | Default | Range / values | What it does |
+|---|---|---|---|
+| `top_k` | `5` | 1 – 15 | Number of chunks given to the LLM as context. |
+| `min_similarity` | `0.30` | 0.0 – 0.9 | Chunks below this cosine similarity are dropped. Higher values give fewer but more relevant sources. |
+| `diversify` | `true` | boolean | Uses MMR to avoid returning near-duplicate chunks. |
+| `mmr_lambda` | `0.7` | 0.0 – 1.0 | Relevance vs. diversity balance when `diversify` is on. |
+
+## User-facing: indexing (need a re-index)
+
+| Key | Default | Range / values | What it does |
+|---|---|---|---|
+| `chunk_strategy` | `recursive` | `recursive`, `fixed`, `by_paragraph`, `by_page` | How text is split. `recursive` splits on paragraphs, then sentences, then words. |
+| `chunk_size` | `800` | 200 – 2000 (characters) | Smaller chunks give precise but narrow context. Larger chunks give broader context with more noise. |
+| `chunk_overlap` | `120` | 0 – 50% of `chunk_size` | Characters shared between neighboring chunks so ideas aren't cut in half. |
+
+## Server-only (environment variables)
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `QA_ACCESS_PASSCODE` | — (required) | The secret passcode users must enter. Set it in the Render dashboard and never commit it. |
+| `QA_TOKEN_SECRET` | — (required) | Random string used to sign access tokens. |
+| `QA_ACCESS_TOKEN_TTL_MINUTES` | `240` | How long an unlock lasts. |
+| `QA_RATE_LIMIT_AUTH_PER_15MIN` | `10` | Passcode attempts per IP. |
+| `QA_ALLOWED_PROVIDERS` | `anthropic,openai,gemini,openai_compatible` | Providers users may pick. |
+| `QA_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Local embedding model. |
+| `QA_ALLOWED_ORIGINS` | `https://ng-04.github.io,http://localhost:8000` | CORS. |
+| `QA_MAX_FILE_MB` | `20` | Per-file size limit. |
+| `QA_MAX_FILES` | `50` | Files per session. |
+| `QA_MAX_TOTAL_PAGES` | `1000` | Pages per session. |
+| `QA_SESSION_TTL_MINUTES` | `60` | Idle time before a session's index is deleted. |
+| `QA_RATE_LIMIT_ASK_PER_MIN` | `10` | Questions per minute per session. |
+| `QA_RATE_LIMIT_INGEST_PER_HOUR` | `20` | Ingest calls per hour per IP. |
+| `QA_LLM_TIMEOUT_S` | `60` | LLM request timeout. |
+
+## Frontend constants
+
+| Where | Key | Value |
+|---|---|---|
+| `local-qa/qa-api.js` | `API_BASE` | Backend URL (decided at deploy time). |
+| `local-qa/onedrive.js` | `MSAL_CLIENT_ID` | Azure app registration client ID (public, not a secret). |
+| `local-qa/onedrive.js` | `MSAL_AUTHORITY` | `https://login.microsoftonline.com/common` (personal and work accounts). |
+| `local-qa/onedrive.js` | `GRAPH_SCOPES` | `["Files.Read"]` |
+| `localStorage` | `localqa.settings` | The user's saved overrides of the user-facing parameters. |
+| `sessionStorage` | `localqa.token` | Access token from `/auth`. |
+| `sessionStorage` / `localStorage` | `localqa.apiKey` | The user's LLM API key. Kept in `localStorage` only when "Remember on this device" is checked. |
+
+## Validation rules
+
+- The server clamps every numeric value to its range and rejects enum values it doesn't know.
+- `chunk_overlap` must be less than `chunk_size`. The server clamps it to `chunk_size / 2`.
+- `provider` must be in `QA_ALLOWED_PROVIDERS`. `base_url` is required for `openai_compatible` and ignored otherwise.
+- `temperature` is sent as given. Where a provider's model rejects it (some reasoning models), the adapter drops it and reports this in the response metadata.
+- A request whose indexing parameters differ from the ones the index was built with gets
+  `409 reindex_required`.
