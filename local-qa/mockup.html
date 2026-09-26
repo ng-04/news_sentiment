@@ -92,7 +92,7 @@
   .files li + li { border-top: 1px solid var(--gray-100); }
   .files .name { flex-grow: 1; display: flex; flex-direction: column; padding: 6px 0; min-width: 0; }
   .files .name strong { color: var(--heading); overflow-wrap: anywhere; }
-  .files .meta { width: 150px; }
+  .files .meta { width: 200px; }
   .files .file-status { width: 96px; }
   .files .err { font-size: 0.82rem; color: var(--red); }
   .empty { padding: 18px; text-align: center; border: 1px dashed var(--gray-300); border-radius: var(--radius); }
@@ -143,10 +143,24 @@
   .reindex p { margin: 0; flex-grow: 1; font-size: 0.9rem; }
   .privacy { font-size: 0.8rem; max-width: 760px; }
 
+  .mock-bar .sep { opacity: 0.55; margin-left: 6px; font-size: 0.8rem; }
+  .files li.folder-row { background: var(--bg-alt); padding: 8px 16px; gap: 8px; font-size: 0.82rem; font-weight: 700; color: var(--heading); }
+  .files li.folder-row svg.i { width: 16px; height: 16px; color: var(--blue); }
+  .files li.folder-row span { font-weight: 500; color: var(--gray-600); }
+  .files li.file-row { padding-left: 28px; }
+  .where .path { font-weight: 500; color: var(--gray-600); }
+  .model-select { display: flex; align-items: center; gap: 8px; }
+  .model-select .field { width: auto; min-width: 190px; }
+  .quota { font-variant-numeric: tabular-nums; }
+
   [hidden] { display: none !important; }
 
   @media (max-width: 640px) {
     .grid-2, .controls { grid-template-columns: minmax(0, 1fr); }
+    .files li.folder-row { display: flex; }
+    .files li.file-row { padding-left: 12px; }
+    .model-select { width: 100%; }
+    .model-select .field { flex-grow: 1; }
     .files li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 6px 4px 8px 12px; }
     .files li > svg.i { grid-column: 1; grid-row: 1; }
     .files .name { grid-column: 2; grid-row: 1; padding: 4px 0 0; }
@@ -179,6 +193,9 @@
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/><path d="M8 11h6"/></symbol>
   <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 18h4"/><path d="M12 18h8"/><circle cx="10" cy="18" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3v18"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4"/><path d="M12 17v4"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="M6 6l2.5 2.5"/><path d="M15.5 15.5L18 18"/><path d="M6 18l2.5-2.5"/><path d="M15.5 8.5L18 6"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-3"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.9 3"/><path d="M20 20v-4h-4"/></symbol>
 </svg>
 
@@ -199,6 +216,9 @@
     <button type="button" data-state="locked">1 · Passcode</button>
     <button type="button" data-state="setup">2 · First-time setup</button>
     <button type="button" data-state="working" aria-pressed="true">3 · Working</button>
+    <span class="sep">Key:</span>
+    <button type="button" data-keymode-btn="server" aria-pressed="true">Site key (demo)</button>
+    <button type="button" data-keymode-btn="user" aria-pressed="false">User’s own key</button>
     <label><input type="checkbox" id="mock-error"> Show wrong-passcode error</label>
   </div>
 </div>
@@ -218,7 +238,7 @@
         <a href="#local-qa" class="tile tile-live tile-new">
           <span class="tile-badge tile-badge-live">New</span>
           <h3>Local Q&amp;A</h3>
-          <p>Ask questions about your PDF and Word files, with answers that cite the page.</p>
+          <p>Ask questions about your PDF, Word and Excel files, with answers that cite where they came from.</p>
         </a>
         <div class="tile tile-placeholder">
           <span class="tile-badge">Coming soon</span>
@@ -239,7 +259,7 @@
       <div>
         <p class="eyebrow">Live Tool</p>
         <h2>Local Q&amp;A</h2>
-        <p class="section-lead" style="margin-bottom:0">Ask questions about your own PDF and Word files. Point it at a OneDrive folder or upload files, and every answer cites the page it came from.</p>
+        <p class="section-lead" style="margin-bottom:0">Ask questions about your own PDF, Word and Excel files. Point it at a OneDrive folder (subfolders included) or upload files, and every answer cites the folder, file and page or sheet it came from.</p>
       </div>
 
       <!-- ============ STATE 1: passcode ============ -->
@@ -258,7 +278,7 @@
       </form>
 
       <!-- ============ STATE 2: first-time setup ============ -->
-      <div class="card" data-view="setup" hidden>
+      <div class="card" data-view="setup" data-keymode="user" hidden>
         <div class="card-head"><h3>Connect a model</h3><span class="badge">Your key, your bill</span></div>
         <div class="col" style="gap:18px">
           <div class="col">
@@ -300,8 +320,25 @@
         </div>
       </div>
 
-      <!-- Model bar (working state) -->
-      <div class="card model-bar" data-view="working">
+      <!-- Model bar: site key (demo default) -->
+      <div class="card model-bar" data-view="setup working" data-keymode="server">
+        <span class="lock-icon" style="width:36px;height:36px"><svg class="i"><use href="#i-spark"/></svg></span>
+        <div class="grow">
+          <span class="title">Claude, on this site’s API key</span>
+          <span class="help">No key needed · <span class="quota" id="quota">187 of 200</span> questions left today</span>
+        </div>
+        <div class="model-select">
+          <label class="label" for="server-model">Model</label>
+          <select id="server-model" class="field">
+            <option>claude-opus-5</option>
+            <option>claude-sonnet-5</option>
+            <option>claude-haiku-4-5</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Model bar: user's own key -->
+      <div class="card model-bar" data-view="working" data-keymode="user">
         <span class="lock-icon" style="width:36px;height:36px"><svg class="i"><use href="#i-key"/></svg></span>
         <div class="grow">
           <span class="title" id="model-summary">Anthropic · claude-opus-5</span>
@@ -328,18 +365,19 @@
             <button type="button" class="btn btn-secondary" data-view="setup">
               <svg class="i"><use href="#i-cloud"/></svg> Sign in with Microsoft
             </button>
-            <label class="help" for="folder">Share link or path, e.g. /Documents/Reports</label>
+            <label class="help" for="folder">Share link or path, e.g. /Documents/Reports. Subfolders are included.</label>
             <div class="row">
               <input id="folder" class="field" type="text" value="/Documents/Board Reports">
               <button type="button" class="btn btn-secondary">Load</button>
             </div>
-            <p class="help" data-view="setup">Read-only access. Only .pdf and .docx files in the folder are used.</p>
+            <p class="help" data-view="setup">Read-only access. PDF, Word and Excel files in the folder and all its subfolders are used.</p>
+            <p class="help" data-view="working">Found 7 files in 4 folders.</p>
           </div>
           <div class="drop">
             <svg class="i" style="width:24px;height:24px;color:var(--gray-600)"><use href="#i-upload"/></svg>
-            <strong>Drop PDF or Word files here</strong>
-            <span class="help">or <a href="#">browse your computer</a></span>
-            <span class="help" style="font-size:0.75rem">.pdf and .docx · up to 20 MB each · 50 files per session</span>
+            <strong>Drop files or a whole folder here</strong>
+            <span class="help">or <a href="#">choose files</a> · <a href="#">choose a folder</a></span>
+            <span class="help" style="font-size:0.75rem">.pdf, .docx, .xlsx · up to 20 MB each · 50 files per session</span>
           </div>
         </div>
 
@@ -347,37 +385,62 @@
 
         <div data-view="working">
           <div class="col" style="gap:6px; margin-bottom:14px">
-            <div class="row help" style="justify-content:space-between"><span>Indexing from OneDrive</span><span>3 of 4 files</span></div>
-            <div class="progress" role="progressbar" aria-label="Indexing progress" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"><span style="width:75%"></span></div>
+            <div class="row help" style="justify-content:space-between"><span>Indexing from OneDrive</span><span>6 of 7 files</span></div>
+            <div class="progress" role="progressbar" aria-label="Indexing progress" aria-valuenow="86" aria-valuemin="0" aria-valuemax="100"><span style="width:86%"></span></div>
           </div>
           <ul class="files">
-            <li>
-              <svg class="i" style="color:var(--gray-600)"><use href="#i-file"/></svg>
-              <span class="name"><strong>Q2-board-report.pdf</strong></span>
-              <span class="help meta">42 pages · 118 chunks</span>
-              <span class="file-status"><span class="badge badge-ok">Ready</span></span>
-              <button type="button" class="icon-btn" aria-label="Remove Q2-board-report.pdf"><svg class="i"><use href="#i-x"/></svg></button>
-            </li>
-            <li>
+            <li class="folder-row"><svg class="i"><use href="#i-folder"/></svg>Board Reports/ <span>· the folder you chose</span></li>
+            <li class="file-row">
               <svg class="i" style="color:var(--gray-600)"><use href="#i-file"/></svg>
               <span class="name"><strong>Budget-FY27.pdf</strong></span>
               <span class="help meta">18 pages · 51 chunks</span>
               <span class="file-status"><span class="badge badge-ok">Ready</span></span>
               <button type="button" class="icon-btn" aria-label="Remove Budget-FY27.pdf"><svg class="i"><use href="#i-x"/></svg></button>
             </li>
-            <li>
+            <li class="folder-row"><svg class="i"><use href="#i-folder"/></svg>Board Reports/2026/Q2/ <span></span></li>
+            <li class="file-row">
               <svg class="i" style="color:var(--gray-600)"><use href="#i-file"/></svg>
-              <span class="name"><strong>HR-policy-handbook.docx</strong></span>
-              <span class="help meta">23 chunks</span>
-              <span class="file-status"><span class="badge badge-busy">Indexing</span></span>
-              <button type="button" class="icon-btn" aria-label="Remove HR-policy-handbook.docx"><svg class="i"><use href="#i-x"/></svg></button>
+              <span class="name"><strong>Q2-board-report.pdf</strong></span>
+              <span class="help meta">42 pages · 118 chunks</span>
+              <span class="file-status"><span class="badge badge-ok">Ready</span></span>
+              <button type="button" class="icon-btn" aria-label="Remove Q2-board-report.pdf"><svg class="i"><use href="#i-x"/></svg></button>
             </li>
-            <li>
+            <li class="file-row">
+              <svg class="i" style="color:var(--gray-600)"><use href="#i-file"/></svg>
+              <span class="name"><strong>Q2-minutes.docx</strong></span>
+              <span class="help meta">14 chunks</span>
+              <span class="file-status"><span class="badge badge-ok">Ready</span></span>
+              <button type="button" class="icon-btn" aria-label="Remove Q2-minutes.docx"><svg class="i"><use href="#i-x"/></svg></button>
+            </li>
+            <li class="file-row">
               <svg class="i" style="color:var(--red)"><use href="#i-alert"/></svg>
               <span class="name"><strong>vendor-contract-scan.pdf</strong><span class="err">No extractable text. The PDF may be scanned images.</span></span>
               <span class="help meta">—</span>
               <span class="file-status"><span class="badge badge-fail">Failed</span></span>
               <button type="button" class="icon-btn" aria-label="Remove vendor-contract-scan.pdf"><svg class="i"><use href="#i-x"/></svg></button>
+            </li>
+            <li class="folder-row"><svg class="i"><use href="#i-folder"/></svg>Board Reports/Finance/ <span></span></li>
+            <li class="file-row">
+              <svg class="i" style="color:var(--green)"><use href="#i-sheet"/></svg>
+              <span class="name"><strong>Revenue-by-region.xlsx</strong></span>
+              <span class="help meta">2 sheets · 64 rows · 6 chunks</span>
+              <span class="file-status"><span class="badge badge-ok">Ready</span></span>
+              <button type="button" class="icon-btn" aria-label="Remove Revenue-by-region.xlsx"><svg class="i"><use href="#i-x"/></svg></button>
+            </li>
+            <li class="file-row">
+              <svg class="i" style="color:var(--green)"><use href="#i-sheet"/></svg>
+              <span class="name"><strong>Headcount-plan.xlsx</strong></span>
+              <span class="help meta">1 sheet · 120 rows · 9 chunks</span>
+              <span class="file-status"><span class="badge badge-ok">Ready</span></span>
+              <button type="button" class="icon-btn" aria-label="Remove Headcount-plan.xlsx"><svg class="i"><use href="#i-x"/></svg></button>
+            </li>
+            <li class="folder-row"><svg class="i"><use href="#i-folder"/></svg>Board Reports/HR/Policies/ <span></span></li>
+            <li class="file-row">
+              <svg class="i" style="color:var(--gray-600)"><use href="#i-file"/></svg>
+              <span class="name"><strong>HR-policy-handbook.docx</strong></span>
+              <span class="help meta">23 chunks</span>
+              <span class="file-status"><span class="badge badge-busy">Indexing</span></span>
+              <button type="button" class="icon-btn" aria-label="Remove HR-policy-handbook.docx"><svg class="i"><use href="#i-x"/></svg></button>
             </li>
           </ul>
         </div>
@@ -391,14 +454,14 @@
           <div class="msg-user">What was the Q2 revenue target, and did we hit it?</div>
 
           <div class="msg-bot">
-            <p>The Q2 revenue target was ₹48 crore <a href="#" class="cite">1</a>. Actual Q2 revenue was ₹45.2 crore, about 6% short of target <a href="#" class="cite">2</a>. The board report puts the gap down to enterprise renewals that slipped into Q3 <a href="#" class="cite">2</a><a href="#" class="cite">3</a>.</p>
+            <p>The Q2 revenue target was ₹48 crore <a href="#" class="cite">1</a>. Actual Q2 revenue was ₹45.2 crore, about 6% short of target, mainly because enterprise renewals slipped into Q3 <a href="#" class="cite">2</a>. By region, South had the strongest quarter at ₹14.0 crore, up from ₹12.4 crore in Q1 <a href="#" class="cite">3</a>.</p>
             <p class="note" id="temp-note"><svg class="i"><use href="#i-info"/></svg> claude-opus-5 doesn’t support temperature, so that setting was ignored.</p>
             <div class="sources">
               <button type="button" class="btn-link" aria-expanded="true" aria-controls="src-1" id="src-toggle">Sources (3) <svg class="i chevron" style="width:16px;height:16px"><use href="#i-up"/></svg></button>
               <ol id="src-1">
-                <li><span class="cite">1</span><div><div class="where">Q2-board-report.pdf · page 14 <span>· match 0.78</span></div><blockquote>“…for the quarter, the board approved a revenue target of ₹48 crore, up from ₹41 crore in Q1…”</blockquote></div></li>
-                <li><span class="cite">2</span><div><div class="where">Q2-board-report.pdf · page 15 <span>· match 0.71</span></div><blockquote>“…realised revenue of ₹45.2 crore. The shortfall is attributable mainly to three enterprise renewals…”</blockquote></div></li>
-                <li><span class="cite">3</span><div><div class="where">Budget-FY27.pdf · page 3 <span>· match 0.58</span></div><blockquote>“…renewals deferred from Q2 are expected to close in the first half of Q3…”</blockquote></div></li>
+                <li><span class="cite">1</span><div><div class="where"><span class="path">Board Reports/2026/Q2/</span> Q2-board-report.pdf · page 14 <span>· match 0.78</span></div><blockquote>“…for the quarter, the board approved a revenue target of ₹48 crore, up from ₹41 crore in Q1…”</blockquote></div></li>
+                <li><span class="cite">2</span><div><div class="where"><span class="path">Board Reports/2026/Q2/</span> Q2-board-report.pdf · page 15 <span>· match 0.71</span></div><blockquote>“…realised revenue of ₹45.2 crore. The shortfall is attributable mainly to three enterprise renewals…”</blockquote></div></li>
+                <li><span class="cite">3</span><div><div class="where"><span class="path">Board Reports/Finance/</span> Revenue-by-region.xlsx · sheet “Revenue” · rows 2–4 <span>· match 0.64</span></div><blockquote>Region: North; Q1 revenue: 10.5; Q2 revenue: 11<br>Region: South; Q1 revenue: 12.4; Q2 revenue: 14<br>Region: West; Q1 revenue: 9; Q2 revenue: 9.5</blockquote></div></li>
               </ol>
             </div>
           </div>
@@ -532,7 +595,8 @@
         </div>
       </div>
 
-      <p class="help privacy" data-view="setup working">Only the passages relevant to a question are sent to your chosen provider. Documents stay in memory for this session and are deleted after an hour of inactivity. Scanned PDFs without a text layer aren’t supported yet.</p>
+      <p class="help privacy" data-view="setup working" data-keymode="server">Answers use this site’s Claude API key, so you don’t need one. Only the passages relevant to a question are sent to Anthropic. Documents stay in memory for this session and are deleted after an hour of inactivity. Scanned PDFs without a text layer aren’t supported yet.</p>
+      <p class="help privacy" data-view="setup working" data-keymode="user">Only the passages relevant to a question are sent to your chosen provider. Documents stay in memory for this session and are deleted after an hour of inactivity. Scanned PDFs without a text layer aren’t supported yet.</p>
     </div>
   </section>
 </main>
@@ -556,18 +620,26 @@
 
   // ---- mockup state switcher ----
   var stateButtons = document.querySelectorAll('.mock-bar [data-state]');
-  function show(state) {
-    document.querySelectorAll('[data-view]').forEach(function (el) {
-      el.hidden = el.getAttribute('data-view').split(' ').indexOf(state) === -1;
+  var keyButtons = document.querySelectorAll('.mock-bar [data-keymode-btn]');
+  var state = 'working', keyMode = 'server';
+  function show(next) {
+    state = next || state;
+    document.querySelectorAll('[data-view], [data-keymode]').forEach(function (el) {
+      var v = el.getAttribute('data-view'), k = el.getAttribute('data-keymode');
+      el.hidden = (v && v.split(' ').indexOf(state) === -1) || (k && k !== keyMode);
     });
     stateButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.state === state)); });
+    keyButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.keymodeBtn === keyMode)); });
+    syncTemp();
     var ask = document.getElementById('ask-btn'), q = document.getElementById('question');
     ask.disabled = q.disabled = state !== 'working';
     document.getElementById('ask-hint').textContent = state === 'working'
       ? 'Enter to send · Shift+Enter for a new line'
-      : 'Add at least one document and an API key to start asking.';
+      : (keyMode === 'server' ? 'Add at least one document to start asking.'
+                              : 'Add at least one document and an API key to start asking.');
   }
   stateButtons.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.state); }); });
+  keyButtons.forEach(function (b) { b.addEventListener('click', function () { keyMode = b.dataset.keymodeBtn; show(); }); });
   document.querySelectorAll('[data-go]').forEach(function (b) {
     b.addEventListener('click', function () { show(b.dataset.go); });
   });
@@ -616,9 +688,12 @@
 
   // ---- temperature support hint follows the chosen model ----
   var TEMP_OK = ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-6'];
+  var serverModel = document.getElementById('server-model');
+  serverModel.addEventListener('change', syncTemp);
   function syncTemp() {
-    var m = modelInput.value.trim() || 'this model';
-    var ignored = current === 'anthropic' && TEMP_OK.indexOf(m) === -1;
+    var onServer = keyMode === 'server';
+    var m = (onServer ? serverModel.value : modelInput.value.trim()) || 'this model';
+    var ignored = (onServer || current === 'anthropic') && TEMP_OK.indexOf(m) === -1;
     document.getElementById('temp-warn').hidden = !ignored;
     document.getElementById('temp-note').hidden = !ignored;
     document.getElementById('temp-warn').querySelector('span').textContent =
@@ -685,7 +760,6 @@
   });
 
   show('working');
-  syncTemp();
 })();
 </script>
 </body>
