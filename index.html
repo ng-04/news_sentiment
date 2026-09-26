@@ -21,6 +21,24 @@
 </script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="qa-i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="qa-i-spark" viewBox="0 0 24 24"><path d="M12 3v4"/><path d="M12 17v4"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="M6 6l2.5 2.5"/><path d="M15.5 15.5L18 18"/><path d="M6 18l2.5-2.5"/><path d="M15.5 8.5L18 6"/></symbol>
+  <symbol id="qa-i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M17 6l3 3"/></symbol>
+  <symbol id="qa-i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 20h16"/></symbol>
+  <symbol id="qa-i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+  <symbol id="qa-i-sheet" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3v18"/></symbol>
+  <symbol id="qa-i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="qa-i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.01"/></symbol>
+  <symbol id="qa-i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5v.01"/></symbol>
+  <symbol id="qa-i-x" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
+  <symbol id="qa-i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/></symbol>
+  <symbol id="qa-i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="qa-i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="qa-i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/><path d="M8 11h6"/></symbol>
+  <symbol id="qa-i-sliders" viewBox="0 0 24 24"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 18h4"/><path d="M12 18h8"/><circle cx="10" cy="18" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/></symbol>
+  <symbol id="qa-i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-3"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.9 3"/><path d="M20 20v-4h-4"/></symbol>
+</svg>
 
 <header class="site-header">
   <div class="container header-inner">
@@ -28,6 +46,7 @@
     <nav class="nav">
       <a href="#home">Home</a>
       <a href="#tools">Tools</a>
+      <a href="#local-qa">Local Q&amp;A</a>
       <a href="#contact">Contact</a>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">Dark mode</button>
     </nav>
@@ -57,11 +76,11 @@
           <h3>Indian Stock Sentiment</h3>
           <p>Live news sentiment scoring for Indian stocks, powered by FinVADER.</p>
         </a>
-        <div class="tile tile-placeholder">
-          <span class="tile-badge">Coming soon</span>
-          <h3>Tool Two</h3>
-          <p>Placeholder for the next tool.</p>
-        </div>
+        <a href="#local-qa" class="tile tile-live">
+          <span class="tile-badge tile-badge-live">Live</span>
+          <h3>Local Q&amp;A</h3>
+          <p>Ask questions about your PDF, Word and Excel files, with answers that cite where they came from.</p>
+        </a>
         <div class="tile tile-placeholder">
           <span class="tile-badge">Coming soon</span>
           <h3>Tool Three</h3>
@@ -156,6 +175,149 @@
     </div>
   </section>
 
+  <section id="local-qa" class="section qa-section">
+    <div class="container qa-stack">
+      <div>
+        <p class="eyebrow">Live Tool</p>
+        <h2>Local Q&amp;A</h2>
+        <p class="section-lead qa-lead">
+          Ask questions about your own PDF, Word and Excel files. Upload files, a whole folder, or a
+          OneDrive folder downloaded as a .zip, and every answer cites the folder, file and page or sheet
+          it came from.
+        </p>
+      </div>
+
+      <p class="qa-banner" id="qa-status" role="status" hidden></p>
+
+      <form class="qa-card qa-lock" id="qa-lock" hidden>
+        <span class="qa-icon-tile"><svg class="qa-i" aria-hidden="true"><use href="#qa-i-lock"/></svg></span>
+        <div>
+          <h3>Enter the passcode</h3>
+          <p class="qa-help">This tool is private. Ask the site owner for the passcode.</p>
+        </div>
+        <label class="qa-sr-only" for="qa-passcode">Passcode</label>
+        <div class="qa-row">
+          <input id="qa-passcode" class="qa-field" type="password" placeholder="Passcode" autocomplete="current-password" required aria-describedby="qa-lock-error">
+          <button type="submit" class="btn btn-primary" id="qa-unlock">Unlock</button>
+        </div>
+        <p class="qa-error" id="qa-lock-error" hidden></p>
+      </form>
+
+      <div class="qa-stack" id="qa-app" hidden>
+        <div class="qa-card qa-model-bar" id="qa-model-bar">
+          <span class="qa-icon-tile qa-icon-tile-sm"><svg class="qa-i" aria-hidden="true"><use href="#qa-i-spark"/></svg></span>
+          <div class="qa-grow">
+            <span class="qa-title" id="qa-model-title">Claude, on this site’s API key</span>
+            <span class="qa-help" id="qa-model-sub"></span>
+          </div>
+          <div class="qa-model-select" id="qa-server-model-wrap">
+            <label class="qa-label" for="qa-server-model">Model</label>
+            <select id="qa-server-model" class="qa-field"></select>
+          </div>
+          <button type="button" class="btn-link" id="qa-own-key-toggle" hidden>Use my own key</button>
+        </div>
+
+        <div class="qa-card" id="qa-key-panel" hidden>
+          <div class="qa-card-head"><h3>Connect a model</h3><span class="qa-badge">Your key, your bill</span></div>
+          <div class="qa-col qa-gap-lg">
+            <div class="qa-grid-2">
+              <div class="qa-col">
+                <label class="qa-label" for="qa-provider">Provider</label>
+                <select id="qa-provider" class="qa-field">
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai_compatible">OpenAI-compatible</option>
+                </select>
+              </div>
+              <div class="qa-col">
+                <label class="qa-label" for="qa-model">Model</label>
+                <input id="qa-model" class="qa-field" type="text" list="qa-model-suggestions" autocomplete="off" spellcheck="false">
+                <datalist id="qa-model-suggestions"></datalist>
+              </div>
+            </div>
+            <div class="qa-col" id="qa-base-url-wrap" hidden>
+              <label class="qa-label" for="qa-base-url">Base URL</label>
+              <input id="qa-base-url" class="qa-field" type="url" placeholder="https://api.groq.com/openai/v1" spellcheck="false">
+              <p class="qa-help">Any service that speaks the OpenAI Chat Completions API: Groq, Mistral, OpenRouter, DeepSeek, Together…</p>
+            </div>
+            <div class="qa-col">
+              <label class="qa-label" for="qa-api-key">API key</label>
+              <input id="qa-api-key" class="qa-field" type="password" autocomplete="off" spellcheck="false">
+            </div>
+            <label class="qa-check"><input type="checkbox" id="qa-remember-key"> Remember this key on this device</label>
+            <div class="qa-row qa-row-center">
+              <button type="button" class="btn qa-btn-secondary" id="qa-test-key">Test key</button>
+              <button type="button" class="btn-link qa-muted" id="qa-forget-key">Forget key</button>
+              <span class="qa-help" id="qa-key-status" role="status"></span>
+            </div>
+            <p class="qa-help">For each question, your key goes through our server to the provider you picked. It’s never stored there, and usage is billed to your own account.</p>
+          </div>
+        </div>
+
+        <div class="qa-card">
+          <div class="qa-card-head">
+            <h3>1. Add documents</h3>
+            <button type="button" class="btn-link qa-muted" id="qa-clear" hidden>Clear all</button>
+          </div>
+          <div class="qa-drop" id="qa-drop">
+            <svg class="qa-i qa-i-lg" aria-hidden="true"><use href="#qa-i-upload"/></svg>
+            <strong>Drop files or a whole folder here</strong>
+            <span class="qa-help">
+              or <label class="qa-linklike" for="qa-file-input">choose files</label> ·
+              <label class="qa-linklike" for="qa-folder-input">choose a folder</label>
+            </span>
+            <span class="qa-help qa-small" id="qa-limits">.pdf, .docx, .xlsx and .zip</span>
+            <input id="qa-file-input" class="qa-sr-only" type="file" multiple accept=".pdf,.docx,.xlsx,.xlsm,.zip">
+            <input id="qa-folder-input" class="qa-sr-only" type="file" webkitdirectory multiple>
+          </div>
+          <p class="qa-help qa-tip">From OneDrive: open the folder at onedrive.com, choose <strong>Download</strong> to get a .zip, and drop it here. Subfolders are kept.</p>
+
+          <div class="qa-col qa-progress-wrap" id="qa-progress" hidden>
+            <div class="qa-row qa-help qa-between"><span id="qa-progress-label">Indexing</span><span id="qa-progress-count"></span></div>
+            <div class="qa-progress" role="progressbar" aria-label="Indexing progress" aria-valuemin="0" aria-valuemax="100" id="qa-progress-bar"><span></span></div>
+          </div>
+          <p class="qa-help qa-empty" id="qa-empty">No documents yet.</p>
+          <ul class="qa-files" id="qa-files" hidden></ul>
+        </div>
+
+        <div class="qa-card">
+          <div class="qa-card-head"><h3>2. Ask</h3></div>
+          <div class="qa-transcript" id="qa-transcript" aria-live="polite" hidden></div>
+          <form class="qa-composer" id="qa-ask-form">
+            <label class="qa-sr-only" for="qa-question">Your question</label>
+            <textarea id="qa-question" class="qa-field" rows="2" maxlength="2000" placeholder="Ask a question about your documents…" disabled></textarea>
+            <button type="submit" class="btn btn-primary" id="qa-ask" disabled>
+              <svg class="qa-i" aria-hidden="true"><use href="#qa-i-send"/></svg><span class="qa-hide-sm">Ask</span>
+            </button>
+          </form>
+          <p class="qa-help qa-hint" id="qa-ask-hint">Add at least one document to start asking.</p>
+        </div>
+
+        <div>
+          <button type="button" class="qa-card qa-adv-toggle" id="qa-adv-toggle" aria-expanded="false" aria-controls="qa-adv-panel">
+            <svg class="qa-i qa-accent" aria-hidden="true"><use href="#qa-i-sliders"/></svg>
+            <span class="qa-grow"><span class="qa-title">Advanced settings</span><span class="qa-help">Temperature, answer length, chunking and retrieval</span></span>
+            <svg class="qa-i qa-chevron" aria-hidden="true"><use href="#qa-i-down"/></svg>
+          </button>
+          <div class="qa-card qa-adv-panel" id="qa-adv-panel" hidden>
+            <div class="qa-reindex" id="qa-reindex" hidden>
+              <svg class="qa-i qa-accent" aria-hidden="true"><use href="#qa-i-refresh"/></svg>
+              <p>Indexing settings changed. Re-index your documents to apply them.</p>
+              <button type="button" class="btn btn-primary" id="qa-reindex-btn">Re-index now</button>
+            </div>
+            <div id="qa-settings"></div>
+            <div class="qa-row qa-end">
+              <button type="button" class="btn qa-btn-secondary" id="qa-reset">Reset to defaults</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="qa-help qa-privacy" id="qa-privacy"></p>
+      </div>
+    </div>
+  </section>
+
   <section id="contact" class="section contact-section">
     <div class="container">
       <p class="eyebrow">Contact</p>
@@ -174,5 +336,6 @@
 </footer>
 
 <script type="module" src="script.js"></script>
+<script type="module" src="local-qa/qa.js"></script>
 </body>
 </html>
