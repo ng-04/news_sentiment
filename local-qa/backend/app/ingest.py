@@ -1,32 +1,43 @@
-"""Parse PDF/DOCX files into located text units, then split units into chunks."""
+"""Parse PDF/DOCX/XLSX files into located text units, then split units into chunks."""
+import datetime as dt
 import io
+import posixpath
 import re
+import zipfile
 from dataclasses import dataclass
 
 from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from openpyxl import load_workbook
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-# A DOCX has no fixed pages; count this many characters as one page for the page limit.
+SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".xlsx", ".xlsm")
+
+# DOCX and XLSX have no fixed pages; these count as one page for the per-session page limit.
 DOCX_CHARS_PER_PAGE = 3000
+XLSX_ROWS_PER_PAGE = 50
 
 
 @dataclass
 class Unit:
-    """A span of source text with a citable location: a PDF page or a DOCX section."""
+    """A span of source text with a citable location: a PDF page, a DOCX section, or one
+    spreadsheet row (sheet + 1-based row number)."""
     text: str
     page: int | None = None
     section: str | None = None
+    sheet: str | None = None
+    row: int | None = None
 
 
 @dataclass
 class ParsedFile:
     name: str
     units: list[Unit]
-    pages: int | None  # real page count for PDFs, None for DOCX
+    pages: int | None  # real page count for PDFs, None otherwise
     page_equivalent: int  # used for the per-session page limit
+    folder: str = ""  # path relative to the chosen folder, "" for the top level
 
 
 @dataclass
@@ -37,6 +48,10 @@ class Chunk:
     page: int | None
     section: str | None
     chunk_index: int
+    folder: str = ""
+    sheet: str | None = None
+    row_start: int | None = None
+    row_end: int | None = None
 
 
 class ParseError(Exception):
@@ -49,7 +64,19 @@ def parse_file(name: str, data: bytes) -> ParsedFile:
         return _parse_pdf(name, data)
     if lower.endswith(".docx"):
         return _parse_docx(name, data)
-    raise ParseError("unsupported file type (only .pdf and .docx)")
+    if lower.endswith((".xlsx", ".xlsm")):
+        return _parse_xlsx(name, data)
+    raise ParseError("unsupported file type (only .pdf, .docx, .xlsx and .xlsm)")
+
+
+def normalize_folder(path: str | None) -> str:
+    """Clean a client-supplied relative folder path: forward slashes, no leading slash,
+    no '.' or '..' segments, at most 300 characters. Returns "" for the top level."""
+    if not path:
+        return ""
+    parts = [p.strip() for p in path.replace("\\", "/").split("/")]
+    parts = [p for p in parts if p and p not in (".", "..")]
+    return posixpath.join(*parts)[:300] if parts else ""
 
 
 def _parse_pdf(name: str, data: bytes) -> ParsedFile:
@@ -110,6 +137,56 @@ def _parse_docx(name: str, data: bytes) -> ParsedFile:
                       page_equivalent=max(1, -(-chars // DOCX_CHARS_PER_PAGE)))
 
 
+def _parse_xlsx(name: str, data: bytes) -> ParsedFile:
+    """One unit per data row. The first non-empty row of each sheet is its header, and every
+    row is written as "Header: value; ..." so a chunk makes sense on its own."""
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except (zipfile.BadZipFile, KeyError, ValueError, OSError) as e:
+        raise ParseError(f"could not read spreadsheet ({type(e).__name__})")
+    units: list[Unit] = []
+    try:
+        for ws in wb.worksheets:
+            header = None
+            for row_num, row in enumerate(ws.iter_rows(values_only=True), start=1):
+                cells = [_cell(v) for v in row]
+                if not any(cells):
+                    continue
+                if header is None:
+                    header = [c or _column_letter(i) for i, c in enumerate(cells)]
+                    continue
+                pairs = [f"{header[i] if i < len(header) else _column_letter(i)}: {c}"
+                         for i, c in enumerate(cells) if c]
+                units.append(Unit(text="; ".join(pairs), sheet=ws.title, row=row_num))
+    finally:
+        wb.close()
+    if not units:
+        raise ParseError("spreadsheet has no data rows")
+    return ParsedFile(name=name, units=units, pages=None,
+                      page_equivalent=max(1, -(-len(units) // XLSX_ROWS_PER_PAGE)))
+
+
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, dt.datetime):
+        return value.date().isoformat() if value.time() == dt.time() else value.isoformat(sep=" ")
+    if isinstance(value, (dt.date, dt.time)):
+        return value.isoformat()
+    return _clean(str(value)).replace("\n", " ")
+
+
+def _column_letter(index: int) -> str:
+    letters = ""
+    index += 1
+    while index:
+        index, rem = divmod(index - 1, 26)
+        letters = chr(65 + rem) + letters
+    return f"Column {letters}"
+
+
 def _clean(text: str) -> str:
     text = text.replace("\x00", "")
     text = re.sub(r"[ \t]+", " ", text)
@@ -123,6 +200,8 @@ _SEPARATORS = ["\n\n", "\n", ". ", " "]
 
 
 def chunk_file(file_id: str, parsed: ParsedFile, strategy: str, size: int, overlap: int) -> list[Chunk]:
+    if parsed.units and parsed.units[0].sheet is not None:
+        return _chunk_rows(file_id, parsed, size)
     chunks: list[Chunk] = []
     for unit in parsed.units:
         if strategy == "by_page":
@@ -137,7 +216,34 @@ def chunk_file(file_id: str, parsed: ParsedFile, strategy: str, size: int, overl
             piece = piece.strip()
             if piece:
                 chunks.append(Chunk(file_id=file_id, file_name=parsed.name, text=piece,
-                                    page=unit.page, section=unit.section, chunk_index=len(chunks)))
+                                    page=unit.page, section=unit.section, chunk_index=len(chunks),
+                                    folder=parsed.folder))
+    return chunks
+
+
+def _chunk_rows(file_id: str, parsed: ParsedFile, size: int) -> list[Chunk]:
+    """Pack consecutive rows of one sheet into chunks of up to `size` characters. Rows are
+    never split, so every chunk can cite an exact sheet and row range. (Each row already
+    carries its headers, so overlap isn't needed.)"""
+    chunks: list[Chunk] = []
+    group: list[Unit] = []
+
+    def flush():
+        if group:
+            chunks.append(Chunk(file_id=file_id, file_name=parsed.name,
+                                text=f"Sheet {group[0].sheet}:\n" + "\n".join(u.text for u in group),
+                                page=None, section=None, chunk_index=len(chunks), folder=parsed.folder,
+                                sheet=group[0].sheet, row_start=group[0].row, row_end=group[-1].row))
+            group.clear()
+
+    length = 0
+    for unit in parsed.units:
+        if group and (unit.sheet != group[0].sheet or length + len(unit.text) > size):
+            flush()
+            length = 0
+        group.append(unit)
+        length += len(unit.text) + 1
+    flush()
     return chunks
 
 

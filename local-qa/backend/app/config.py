@@ -16,8 +16,15 @@ def _env_int(name: str, default: int) -> int:
     return int(os.environ.get(name, default))
 
 
+KEY_MODES = ("server", "user", "both")
+
+
 @dataclass(frozen=True)
 class Settings:
+    key_mode: str  # "server": operator's key only; "user": users bring keys; "both": server by default
+    server_api_key: str  # the operator's Anthropic key (ANTHROPIC_API_KEY); never sent to clients
+    server_models: list[str]  # Claude models users may pick when the server key is used
+    daily_question_limit: int  # server-key questions per UTC day; 0 = unlimited
     access_passcode: str
     token_secret: str
     access_token_ttl_minutes: int
@@ -35,7 +42,14 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    key_mode = os.environ.get("QA_KEY_MODE", "server").strip().lower()
+    if key_mode not in KEY_MODES:
+        raise ValueError(f"QA_KEY_MODE must be one of {KEY_MODES}, got {key_mode!r}")
     return Settings(
+        key_mode=key_mode,
+        server_api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
+        server_models=_env_list("QA_SERVER_MODELS", "claude-opus-5,claude-sonnet-5,claude-haiku-4-5"),
+        daily_question_limit=_env_int("QA_DAILY_QUESTION_LIMIT", 200),
         access_passcode=os.environ.get("QA_ACCESS_PASSCODE", ""),
         token_secret=os.environ.get("QA_TOKEN_SECRET", ""),
         access_token_ttl_minutes=_env_int("QA_ACCESS_TOKEN_TTL_MINUTES", 240),
@@ -145,6 +159,13 @@ def public_config(settings: Settings) -> dict:
             "max_file_mb": settings.max_file_mb,
             "max_files": settings.max_files,
             "max_total_pages": settings.max_total_pages,
-            "allowed_extensions": [".pdf", ".docx"],
+            "allowed_extensions": [".pdf", ".docx", ".xlsx", ".xlsm"],
+        },
+        "keys": {
+            "mode": settings.key_mode,
+            # Whether answers can run on the site's own key right now (it's configured).
+            "server_key": settings.key_mode != "user" and bool(settings.server_api_key),
+            "server_models": settings.server_models,
+            "user_keys": settings.key_mode != "server",
         },
     }

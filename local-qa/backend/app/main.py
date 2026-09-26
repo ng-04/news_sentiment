@@ -3,8 +3,10 @@ import asyncio
 import json
 import re
 import secrets
+from pathlib import Path
 
 import numpy as np
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -13,7 +15,7 @@ from pydantic import BaseModel, Field
 from . import auth
 from .config import INDEXING_KEYS, ParamError, Settings, load_settings, public_config, resolve_params
 from .index import Embedder
-from .ingest import ParseError, chunk_file, parse_file
+from .ingest import SUPPORTED_EXTENSIONS, ParseError, chunk_file, normalize_folder, parse_file
 from .llm.base import NOT_FOUND_SENTENCE, LLMError, LLMRequest, build_prompt, check_base_url, get_adapter
 from .sessions import Session, SessionStore, StoredFile
 
@@ -60,6 +62,7 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
     auth_limit = auth.RateLimiter(settings.rate_limit_auth_per_15min, 15 * 60)
     ingest_limit = auth.RateLimiter(settings.rate_limit_ingest_per_hour, 3600)
     ask_limit = auth.RateLimiter(settings.rate_limit_ask_per_min, 60)
+    server_quota = auth.DailyCounter(settings.daily_question_limit)
     configured = bool(settings.access_passcode and settings.token_secret)
 
     app = FastAPI(title="Local Q&A", docs_url=None, redoc_url=None)
@@ -120,7 +123,9 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
 
     @api.get("/config")
     async def config():
-        return public_config(settings)
+        cfg = public_config(settings)
+        cfg["keys"]["daily_remaining"] = server_quota.remaining() if cfg["keys"]["server_key"] else None
+        return cfg
 
     @api.post("/session")
     async def new_session():
@@ -128,27 +133,31 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
 
     @api.post("/ingest")
     async def ingest(request: Request, session_id: str = Form(...), params: str = Form("{}"),
-                     files: list[UploadFile] = File(...)):
+                     paths: str = Form("[]"), files: list[UploadFile] = File(...)):
+        """`paths` is an optional JSON list, parallel to `files`, of each file's folder
+        relative to the folder the user chose (e.g. "2026/Q2"); "" means the top level."""
         if not ingest_limit.allow(client_ip(request)):
             raise APIError(429, "rate_limited", "Too many uploads this hour. Try again later.")
         session = get_session(session_id)
         indexing = params_or_400(_json_or_400(params), INDEXING_KEYS)
+        folders = _json_or_400(paths, list)
         async with session.lock:
             if session.files and session.indexing_params != indexing:
                 raise APIError(409, "reindex_required",
                                "Indexing settings changed. Re-index your documents before adding more.")
             session.indexing_params = indexing
             results = []
-            for upload in files:
-                results.append(await _ingest_one(session, upload, indexing))
+            for i, upload in enumerate(files):
+                folder = normalize_folder(str(folders[i])) if i < len(folders) and folders[i] else ""
+                results.append(await _ingest_one(session, upload, folder, indexing))
         return {"files": results}
 
-    async def _ingest_one(session: Session, upload: UploadFile, indexing: dict) -> dict:
+    async def _ingest_one(session: Session, upload: UploadFile, folder: str, indexing: dict) -> dict:
         name = (upload.filename or "file").rsplit("/", 1)[-1].rsplit("\\", 1)[-1][:200]
-        fail = lambda reason: {"file_id": None, "name": name, "pages": None, "chunks": 0,
-                               "status": "failed", "error": reason}
-        if not name.lower().endswith((".pdf", ".docx")):
-            return fail("unsupported file type (only .pdf and .docx)")
+        fail = lambda reason: {"file_id": None, "name": name, "folder": folder, "pages": None,
+                               "chunks": 0, "status": "failed", "error": reason}
+        if not name.lower().endswith(SUPPORTED_EXTENSIONS):
+            return fail("unsupported file type (only .pdf, .docx, .xlsx and .xlsm)")
         if len(session.files) >= settings.max_files:
             return fail(f"file limit reached ({settings.max_files} per session)")
         limit = settings.max_file_mb * 1024 * 1024
@@ -159,6 +168,7 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
             parsed = await asyncio.to_thread(parse_file, name, data)
         except ParseError as e:
             return fail(str(e))
+        parsed.folder = folder
         if session.page_equivalents + parsed.page_equivalent > settings.max_total_pages:
             return fail(f"would exceed the {settings.max_total_pages}-page limit for this session")
         file_id = secrets.token_urlsafe(8)
@@ -167,8 +177,7 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
         vectors = await asyncio.to_thread(embedder.embed_passages, [c.text for c in chunks])
         session.index.add(chunks, vectors)
         session.files[file_id] = StoredFile(file_id=file_id, parsed=parsed, chunks=len(chunks))
-        return {"file_id": file_id, "name": name, "pages": parsed.pages, "chunks": len(chunks),
-                "status": "ready", "error": None}
+        return _file_result(session.files[file_id])
 
     @api.post("/reindex")
     async def reindex(body: ReindexBody):
@@ -184,8 +193,7 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
                 session.index.add(chunks, await asyncio.to_thread(embedder.embed_passages,
                                                                   [c.text for c in chunks]))
                 f.chunks = len(chunks)
-                results.append({"file_id": f.file_id, "name": f.parsed.name, "pages": f.parsed.pages,
-                                "chunks": f.chunks, "status": "ready", "error": None})
+                results.append(_file_result(f))
         return {"files": results}
 
     @api.delete("/documents/{file_id}", status_code=204)
@@ -205,11 +213,32 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
             session.indexing_params = None
         return Response(status_code=204)
 
-    async def _llm_request(body: LLMBody, api_key: str, answer: dict, system: str, messages: list[dict],
-                           max_tokens: int | None = None) -> LLMRequest:
+    def _use_server_key(x_llm_key: str) -> bool:
+        if settings.key_mode == "server":
+            return True
+        if settings.key_mode == "user":
+            return False
+        return not x_llm_key.strip()  # "both": the server key unless the user brought one
+
+    async def _llm_request(body: LLMBody, x_llm_key: str, answer: dict, system: str, messages: list[dict],
+                           max_tokens: int | None = None) -> tuple[LLMRequest, bool]:
+        """Build the provider request. Returns it plus whether it runs on the server's key."""
+        common = dict(system=system, messages=messages, temperature=answer["temperature"],
+                      max_tokens=max_tokens or answer["max_answer_tokens"],
+                      effort=answer["reasoning_effort"], timeout_s=settings.llm_timeout_s)
+        if _use_server_key(x_llm_key):
+            if not settings.server_api_key:
+                raise APIError(503, "not_configured", "The server has no API key configured yet.")
+            model = body.model.strip() or settings.server_models[0]
+            if model not in settings.server_models:
+                raise APIError(400, "invalid_model",
+                               f"Choose one of: {', '.join(settings.server_models)}.")
+            return LLMRequest(provider="anthropic", model=model, api_key=settings.server_api_key,
+                              **common), True
+
         if body.provider not in settings.allowed_providers:
             raise APIError(400, "invalid_provider", "That provider isn't enabled on this server.")
-        if not api_key.strip():
+        if not x_llm_key.strip():
             raise APIError(401, "invalid_api_key", "Enter an API key for the selected provider.")
         model = body.model.strip()[:100]
         if not model:
@@ -222,22 +251,21 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
                 base_url = await check_base_url(body.base_url.strip())
             except LLMError as e:
                 raise APIError(e.status, e.code, e.message)
-        return LLMRequest(provider=body.provider, model=model, api_key=api_key.strip(), system=system,
-                          messages=messages, temperature=answer["temperature"],
-                          max_tokens=max_tokens or answer["max_answer_tokens"],
-                          effort=answer["reasoning_effort"], timeout_s=settings.llm_timeout_s,
-                          base_url=base_url)
+        return LLMRequest(provider=body.provider, model=model, api_key=x_llm_key.strip(),
+                          base_url=base_url, **common), False
 
     @api.post("/test-llm")
     async def test_llm(body: LLMBody, x_llm_key: str = Header("")):
-        req = await _llm_request(body, x_llm_key, resolve_params({}), "Reply with the single word OK.",
-                                 [{"role": "user", "content": "Say OK."}], max_tokens=16)
+        if _use_server_key(x_llm_key):
+            return {"ok": True, "server_key": True}  # nothing for the user to test
+        req, _ = await _llm_request(body, x_llm_key, resolve_params({}), "Reply with the single word OK.",
+                                    [{"role": "user", "content": "Say OK."}], max_tokens=16)
         try:
             async for _ in get_adapter(req.provider).stream(req):
                 pass
         except LLMError as e:
             raise APIError(e.status, e.code, e.message)
-        return {"ok": True}
+        return {"ok": True, "server_key": False}
 
     @api.post("/ask")
     async def ask(body: AskBody, x_llm_key: str = Header("")):
@@ -264,7 +292,10 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
             return StreamingResponse(not_found(), media_type="text/event-stream")
 
         system, messages = build_prompt(body.question, hits, history, p["answer_style"], p["strict_grounding"])
-        req = await _llm_request(body, x_llm_key, p, system, messages)
+        req, on_server_key = await _llm_request(body, x_llm_key, p, system, messages)
+        if on_server_key and server_quota.remaining() == 0:
+            raise APIError(429, "daily_limit_reached",
+                           "Today's question limit for this site has been reached. Try again tomorrow.")
         events = get_adapter(req.provider).stream(req)
         # Pull the first event before responding, so key/model errors come back as a normal
         # HTTP error instead of a half-open stream.
@@ -272,6 +303,8 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
             first = await anext(events, None)
         except LLMError as e:
             raise APIError(e.status, e.code, e.message)
+        if on_server_key:
+            server_quota.take()  # counted only once the provider accepted the request
 
         async def stream():
             answer = []
@@ -288,7 +321,8 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
                 return
             text = "".join(answer).strip()
             cited = sorted({int(n) for n in re.findall(r"\[(\d+)\]", text) if 1 <= int(n) <= len(sources)})
-            yield _sse("done", {"not_found": text.startswith(NOT_FOUND_SENTENCE[:-1]), "cited": cited})
+            yield _sse("done", {"not_found": text.startswith(NOT_FOUND_SENTENCE[:-1]), "cited": cited,
+                                "daily_remaining": server_quota.remaining() if on_server_key else None})
 
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
@@ -311,17 +345,23 @@ def _query_vector(embedder: Embedder, question: str, history: list[dict]) -> np.
 
 def _source(n: int, hit) -> dict:
     c = hit.chunk
-    return {"n": n, "file_id": c.file_id, "file_name": c.file_name, "page": c.page,
-            "section": c.section, "score": round(hit.score, 3), "snippet": c.text}
+    return {"n": n, "file_id": c.file_id, "file_name": c.file_name, "folder": c.folder, "page": c.page,
+            "section": c.section, "sheet": c.sheet, "row_start": c.row_start, "row_end": c.row_end,
+            "score": round(hit.score, 3), "snippet": c.text}
 
 
-def _json_or_400(raw: str) -> dict:
+def _file_result(f: StoredFile) -> dict:
+    return {"file_id": f.file_id, "name": f.parsed.name, "folder": f.parsed.folder, "pages": f.parsed.pages,
+            "chunks": f.chunks, "status": "ready", "error": None}
+
+
+def _json_or_400(raw: str, kind: type = dict):
     try:
-        value = json.loads(raw or "{}")
+        value = json.loads(raw) if raw else kind()
     except json.JSONDecodeError:
-        raise APIError(400, "invalid_param", "params must be JSON")
-    if not isinstance(value, dict):
-        raise APIError(400, "invalid_param", "params must be a JSON object")
+        raise APIError(400, "invalid_param", "form fields params and paths must be JSON")
+    if not isinstance(value, kind):
+        raise APIError(400, "invalid_param", f"expected a JSON {'object' if kind is dict else 'list'}")
     return value
 
 
@@ -329,4 +369,7 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+# Local development reads secrets (ANTHROPIC_API_KEY, QA_ACCESS_PASSCODE, ...) from a
+# git-ignored backend/.env; on Render they come from the service's environment instead.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 app = create_app()

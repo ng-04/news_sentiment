@@ -12,8 +12,16 @@ services:
       paths:
         - local-qa/backend/**
     envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false            # your Claude key: entered in the Render dashboard, never committed
       - key: QA_ACCESS_PASSCODE
         sync: false            # entered in the Render dashboard, never committed
+      - key: QA_KEY_MODE
+        value: server
+      - key: QA_DAILY_QUESTION_LIMIT
+        value: "200"
+      - key: QA_SERVER_MODELS
+        value: claude-opus-5,claude-sonnet-5,claude-haiku-4-5
       - key: QA_TOKEN_SECRET
         generateValue: true
       - key: QA_ALLOWED_ORIGINS

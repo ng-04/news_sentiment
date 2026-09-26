@@ -1,7 +1,7 @@
 import pytest
 
 from app.config import ParamError, resolve_params
-from app.ingest import ParseError, chunk_file, parse_file
+from app.ingest import ParseError, chunk_file, normalize_folder, parse_file
 from tests.conftest import make_pdf
 
 
@@ -63,3 +63,37 @@ def test_params_are_clamped_and_validated():
     assert p["chunk_overlap"] == 150  # at most half the chunk size
     with pytest.raises(ParamError):
         resolve_params({"answer_style": "poem"})
+
+
+def test_xlsx_rows_keep_headers_sheets_and_row_numbers(sales_xlsx):
+    parsed = parse_file("sales.xlsx", sales_xlsx)
+    rows = {(u.sheet, u.row): u.text for u in parsed.units}
+    assert rows[("Revenue", 3)] == "Region: South; Q1 revenue: 12.4; Q2 revenue: 14; Updated: 2026-07-01"
+    assert ("Revenue", 5) in rows and ("Revenue", 4) not in rows  # blank row skipped, numbering kept
+    assert rows[("Notes", 2)] == "Topic: Pricing; Comment: Discounts capped at 12 percent"
+
+
+def test_xlsx_chunks_never_split_rows_or_mix_sheets(sales_xlsx):
+    parsed = parse_file("sales.xlsx", sales_xlsx)
+    chunks = chunk_file("f1", parsed, "recursive", size=200, overlap=50)
+    assert {c.sheet for c in chunks} == {"Revenue", "Notes"}
+    for c in chunks:
+        assert c.row_start <= c.row_end and c.text.startswith(f"Sheet {c.sheet}:")
+    revenue = [c for c in chunks if c.sheet == "Revenue"]
+    assert revenue[0].row_start == 2 and revenue[-1].row_end == 5
+
+
+def test_xlsx_errors():
+    with pytest.raises(ParseError):
+        parse_file("bad.xlsx", b"not a zip")
+    from tests.conftest import make_xlsx
+    with pytest.raises(ParseError, match="no data rows"):
+        parse_file("empty.xlsx", make_xlsx({"S": [["Only", "headers"]]}))
+
+
+@pytest.mark.parametrize("raw,expected", [
+    (None, ""), ("", ""), ("/", ""), ("2026/Q2", "2026/Q2"), ("/2026//Q2/", "2026/Q2"),
+    ("..\\..\\etc", "etc"), ("a/./b/../c", "a/b/c"),
+])
+def test_normalize_folder(raw, expected):
+    assert normalize_folder(raw) == expected

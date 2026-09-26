@@ -42,11 +42,15 @@ are set by the operator through environment variables and are never exposed.
 
 | Env var | Default | Purpose |
 |---|---|---|
+| `QA_KEY_MODE` | `server` | Which key answers: `server` (the site owner's key only; users see no key field), `user` (users bring their own key for any provider), or `both` (the owner's key unless the user sends one). |
+| `ANTHROPIC_API_KEY` | — (required for `server`/`both`) | The site owner's Claude key. A secret: `backend/.env` locally (git-ignored), the Render dashboard in production. Never returned to clients. |
+| `QA_SERVER_MODELS` | `claude-opus-5,claude-sonnet-5,claude-haiku-4-5` | Models users may pick on the owner's key; the first is the default. |
+| `QA_DAILY_QUESTION_LIMIT` | `200` | Questions per UTC day on the owner's key (`0` = unlimited). Counted in memory, so it resets on restart. |
 | `QA_ACCESS_PASSCODE` | — (required) | The secret passcode users must enter. Set it in the Render dashboard and never commit it. |
 | `QA_TOKEN_SECRET` | — (required) | Random string used to sign access tokens. |
 | `QA_ACCESS_TOKEN_TTL_MINUTES` | `240` | How long an unlock lasts. |
 | `QA_RATE_LIMIT_AUTH_PER_15MIN` | `10` | Passcode attempts per IP. |
-| `QA_ALLOWED_PROVIDERS` | `anthropic,openai,gemini,openai_compatible` | Providers users may pick. |
+| `QA_ALLOWED_PROVIDERS` | `anthropic,openai,gemini,openai_compatible` | Providers users may pick with their own key (`user`/`both` modes). |
 | `QA_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Local embedding model. |
 | `QA_EMBEDDING_CACHE` | fastembed default (`/opt/models` in Docker) | Where the embedding model is stored. The Docker image downloads it at build time. |
 | `QA_ALLOWED_ORIGINS` | `https://ng-04.github.io,http://localhost:8000` | CORS. |
@@ -64,16 +68,21 @@ are set by the operator through environment variables and are never exposed.
 |---|---|---|
 | `local-qa/qa-api.js` | `API_BASE` | Backend URL (decided at deploy time). |
 | `local-qa/onedrive.js` | `MSAL_CLIENT_ID` | Azure app registration client ID (public, not a secret). |
-| `local-qa/onedrive.js` | `MSAL_AUTHORITY` | `https://login.microsoftonline.com/common` (personal and work accounts). |
-| `local-qa/onedrive.js` | `GRAPH_SCOPES` | `["Files.Read"]` |
+| `local-qa/onedrive.js` | `MSAL_AUTHORITY` | `https://login.microsoftonline.com/organizations` (work/school Microsoft 365 accounts). |
+| `local-qa/onedrive.js` | `GRAPH_SCOPES` | `["Files.Read.All"]` (read-only; covers folders shared from colleagues or Teams sites). |
 | `localStorage` | `localqa.settings` | The user's saved overrides of the user-facing parameters. |
 | `sessionStorage` | `localqa.token` | Access token from `/auth`. |
-| `sessionStorage` / `localStorage` | `localqa.apiKey` | The user's LLM API key. Kept in `localStorage` only when "Remember on this device" is checked. |
+| `sessionStorage` / `localStorage` | `localqa.apiKey` | `user`/`both` modes only: the user's LLM API key. Kept in `localStorage` only when "Remember on this device" is checked. |
+
+`GET /config` also returns `keys`: `{mode, server_key, server_models, user_keys, daily_remaining}`,
+which the frontend uses to decide whether to show the key field. `limits.allowed_extensions` is
+`[".pdf", ".docx", ".xlsx", ".xlsm"]`.
 
 ## Validation rules
 
 - The server clamps every numeric value to its range and rejects enum values it doesn't know.
 - `chunk_overlap` must be less than `chunk_size`. The server clamps it to `chunk_size / 2`.
+- On the owner's key, `provider` is ignored (always Anthropic) and `model` must be in `QA_SERVER_MODELS`; an empty model means the first one.
 - `provider` must be in `QA_ALLOWED_PROVIDERS`. `base_url` is required for `openai_compatible` and ignored otherwise.
 - `temperature` is sent only where the model accepts it. The Anthropic adapter uses a list of known models; the OpenAI adapters retry once without it if the provider rejects it. Either way a `note` event tells the user.
 - Models that may think before answering get 4,000 extra tokens on top of `max_answer_tokens`, because thinking counts against the same limit and would otherwise cut off the answer.

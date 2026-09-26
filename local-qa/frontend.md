@@ -19,18 +19,20 @@ no framework and no build step, with ES modules loaded from `index.html`.
 ┌─ Local Q&A ─────────────────────────────────────────────┐
 │ 1. Add documents                                        │
 │   [ Sign in with Microsoft ]  Folder: [____________] [Load]
-│   — or —  [ Upload PDF / DOCX ]  (drag & drop zone)     │
+│   — or —  [ Upload files or a folder ] (drag & drop)    │
 │                                                         │
-│   Indexed documents (5)                     [Clear all] │
-│   ✓ Q2-report.pdf      42 pages   118 chunks            │
-│   ✓ policy.docx        —          23 chunks             │
-│   ⚠ scan.pdf           no extractable text              │
+│   Indexed documents (7 in 4 folders)        [Clear all] │
+│   ▸ Board Reports/2026/Q2/                              │
+│     ✓ Q2-report.pdf    42 pages   118 chunks            │
+│     ⚠ scan.pdf         no extractable text              │
+│   ▸ Board Reports/Finance/                              │
+│     ✓ revenue.xlsx     2 sheets · 64 rows · 6 chunks    │
 │                                                         │
 │ 2. Ask                                                  │
 │   ┌───────────────────────────────────────────────────┐ │
 │   │ chat transcript (user / bot bubbles)              │ │
 │   │ bot answer … [1] [2]                              │ │
-│   │   ▸ Sources: [1] Q2-report.pdf p.14  [2] …        │ │
+│   │   ▸ Sources: [1] Board Reports/2026/Q2/Q2-report.pdf p.14 … │
 │   └───────────────────────────────────────────────────┘ │
 │   [ Ask a question about your documents…      ] [Ask]   │
 │                                                         │
@@ -39,6 +41,14 @@ no framework and no build step, with ES modules loaded from `index.html`.
 ```
 
 ## Access and API key (shown before anything else)
+
+What the key UI shows depends on `keys.mode` from `GET /config` (see config.md):
+
+- `server` (the demo): no key field at all. A bar reads "Claude, on this site's API key", with a
+  **Model** picker limited to `keys.server_models` and "*N* questions left today" from
+  `keys.daily_remaining` (updated from each answer's `done` event). F0b–F0d don't apply.
+- `user`: the provider/key setup in F0b–F0d.
+- `both`: the server bar by default, plus a "Use my own key" link that opens F0b.
 
 | ID | Requirement |
 |---|---|
@@ -51,12 +61,12 @@ no framework and no build step, with ES modules loaded from `index.html`.
 
 | ID | Requirement |
 |---|---|
-| F1 | **Sign in with Microsoft** uses MSAL.js (auth code + PKCE) with the delegated, read-only scope `Files.Read`. The token stays in the browser and is never sent to our backend. |
-| F2 | The folder field accepts a OneDrive **share link** or a **path** such as `/Documents/Reports`. **Load** lists the folder through Microsoft Graph and keeps only `.pdf` and `.docx` files. |
-| F3 | The listed files are downloaded through Graph and sent to the backend `/ingest` endpoint in batches, with a progress bar that shows *n of N files*. |
-| F4 | Upload works through a file input (`accept=".pdf,.docx"`, multiple) and drag and drop. The UI rejects other types and files over the size limit (see config) before uploading. |
-| F5 | The indexed-document list shows each file's name, page count, chunk count and status (indexing / ready / failed with a reason). Each file can be removed individually, and **Clear all** removes everything. |
-| F6 | The **Ask** box stays disabled until at least one document is ready **and** an API key has been entered. |
+| F1 | **Sign in with Microsoft** uses MSAL.js (auth code + PKCE) against the work/school authority (`organizations`), with the delegated, read-only scope `Files.Read.All`. That scope is needed because work folders are often shared from a colleague's OneDrive or a Teams/SharePoint site. The token stays in the browser and is never sent to our backend. If the user's organization requires admin approval, the sign-in error says so plainly. |
+| F2 | The folder field accepts a OneDrive **share link** (resolved with Graph `/shares/{id}/driveItem`) or a **path** such as `/Documents/Reports`. **Load** walks the folder **and every subfolder**, following Graph paging, and keeps `.pdf`, `.docx`, `.xlsx` and `.xlsm` files. It stops at the session's file limit and says how many files were skipped. |
+| F3 | The files are downloaded through Graph and sent to `/ingest` in small batches, each with its folder path relative to the chosen folder's parent (so the chosen folder's name is included, e.g. `Board Reports/2026/Q2`). A progress bar shows *n of N files*. |
+| F4 | Upload works through a file input (`accept=".pdf,.docx,.xlsx,.xlsm"`, multiple), a folder picker (`webkitdirectory`), and drag and drop of files or whole folders (`webkitGetAsEntry`). Folder uploads keep their relative paths. The UI rejects other types and oversized files before uploading. |
+| F5 | The indexed-document list is grouped by folder path. Each file shows its name, pages (PDF) or sheets and rows (Excel), chunk count and status (indexing / ready / failed with a reason). Files can be removed individually, and **Clear all** removes everything. |
+| F6 | The **Ask** box stays disabled until at least one document is ready and, in `user` mode, an API key has been entered. |
 
 ## Chat panel
 
@@ -64,11 +74,11 @@ no framework and no build step, with ES modules loaded from `index.html`.
 |---|---|
 | F7 | The chat transcript alternates user and bot messages. Enter sends the question and Shift+Enter adds a new line. |
 | F8 | Bot answers stream in token by token if the backend streams (SSE). Otherwise a typing indicator shows until the answer arrives. |
-| F9 | Inline citation markers `[1]` link to a **Sources** list under the answer. Each source shows the file name, page or section, and an expandable snippet of the retrieved chunk. |
+| F9 | Inline citation markers `[1]` link to a **Sources** list under the answer. Each source shows the **folder path**, file name, and page (PDF), section (Word) or sheet and row range (Excel), plus an expandable snippet of the retrieved chunk. |
 | F10 | A "not found in your documents" answer is styled differently from a normal answer. |
 | F10b | `note` events from the backend (e.g. "claude-opus-5 doesn't support temperature, so that setting was ignored", or "answer cut off at the length limit") appear as a small muted line under the answer. |
 | F11 | The last N turns (see config) are sent with each question so follow-up questions work. |
-| F12 | Errors (backend down or cold-starting, rate limit, expired access token, invalid or out-of-credit API key) are shown inline with a retry action and never fail silently. |
+| F12 | Errors (backend down or cold-starting, rate limit, daily limit reached, expired access token, invalid or out-of-credit API key) are shown inline with a retry action and never fail silently. Because the free Render plan sleeps, the first request after idle shows "Waking the server up, this can take up to a minute…" rather than an error. |
 
 ## Advanced settings panel
 

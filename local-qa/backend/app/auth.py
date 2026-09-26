@@ -46,3 +46,33 @@ class RateLimiter:
             return False
         q.append(now)
         return True
+
+
+class DailyCounter:
+    """Counts events per UTC day (e.g. questions answered on the server's key).
+
+    Kept in memory, so it restarts at zero when the server restarts; it's a guard against
+    runaway use, not billing. A limit of 0 means unlimited.
+    """
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self._day, self._count = None, 0
+
+    def _roll(self):
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        if today != self._day:
+            self._day, self._count = today, 0
+
+    def remaining(self) -> int | None:
+        if not self.limit:
+            return None
+        self._roll()
+        return max(0, self.limit - self._count)
+
+    def take(self) -> bool:
+        self._roll()
+        if self.limit and self._count >= self.limit:
+            return False
+        self._count += 1
+        return True

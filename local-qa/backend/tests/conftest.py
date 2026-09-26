@@ -5,6 +5,7 @@ import re
 import numpy as np
 import pytest
 from docx import Document
+from openpyxl import Workbook
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
@@ -62,9 +63,23 @@ def make_docx(sections: list[tuple[str, list[str]]], table: list[list[str]] | No
     return buf.getvalue()
 
 
+def make_xlsx(sheets: dict[str, list[list]]) -> bytes:
+    wb = Workbook()
+    wb.remove(wb.active)
+    for title, rows in sheets.items():
+        ws = wb.create_sheet(title)
+        for row in rows:
+            ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 @pytest.fixture
 def settings():
     return Settings(
+        key_mode="user", server_api_key="", server_models=["claude-opus-5", "claude-haiku-4-5"],
+        daily_question_limit=0,
         access_passcode=PASSCODE, token_secret="test-secret", access_token_ttl_minutes=60,
         rate_limit_auth_per_15min=100, allowed_providers=["anthropic", "openai", "gemini", "openai_compatible"],
         embedding_model="unused", allowed_origins=["http://localhost:8000"], max_file_mb=5, max_files=10,
@@ -89,3 +104,16 @@ def policy_docx():
          ("Travel policy", ["International travel needs approval from a director."])],
         table=[["Grade", "Hotel limit"], ["L1", "5000"], ["L2", "8000"]],
     )
+
+
+@pytest.fixture
+def sales_xlsx():
+    import datetime as dt
+    return make_xlsx({
+        "Revenue": [["Region", "Q1 revenue", "Q2 revenue", "Updated"],
+                    ["North", 10.5, 11.0, dt.date(2026, 7, 1)],
+                    ["South", 12.4, 14.0, dt.date(2026, 7, 1)],
+                    [None, None, None, None],
+                    ["West", 9, 9.5, dt.date(2026, 7, 2)]],
+        "Notes": [["Topic", "Comment"], ["Pricing", "Discounts capped at 12 percent"]],
+    })

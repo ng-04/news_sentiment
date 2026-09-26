@@ -81,12 +81,23 @@ def build_prompt(question: str, hits: list[Hit], history: list[dict],
     )
     blocks = []
     for n, hit in enumerate(hits, start=1):
-        c = hit.chunk
-        where = f"page {c.page}" if c.page else (f'section "{c.section}"' if c.section else "")
-        label = f"{c.file_name}, {where}" if where else c.file_name
-        blocks.append(f'<excerpt n="{n}" source="{_attr(label)}">\n{c.text}\n</excerpt>')
+        label = source_label(hit.chunk)
+        blocks.append(f'<excerpt n="{n}" source="{_attr(label)}">\n{hit.chunk.text}\n</excerpt>')
     user = "<excerpts>\n" + "\n".join(blocks) + "\n</excerpts>\n\nQuestion: " + question
     return system, [*history, {"role": "user", "content": user}]
+
+
+def source_label(c) -> str:
+    """Human-readable citation: folder/file, then page, section, or sheet and rows."""
+    path = f"{c.folder}/{c.file_name}" if c.folder else c.file_name
+    if c.sheet is not None:
+        rows = f"row {c.row_start}" if c.row_start == c.row_end else f"rows {c.row_start}-{c.row_end}"
+        return f'{path}, sheet "{c.sheet}", {rows}'
+    if c.page:
+        return f"{path}, page {c.page}"
+    if c.section:
+        return f'{path}, section "{c.section}"'
+    return path
 
 
 def _attr(s: str) -> str:

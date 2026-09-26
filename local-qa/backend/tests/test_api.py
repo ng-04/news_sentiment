@@ -127,7 +127,7 @@ def test_ask_cites_correct_file_and_page(client, report_pdf, policy_docx):
     assert kinds[0] == "meta" and kinds[-1] == "done"
     top = events[0][1]["sources"][0]
     assert (top["file_name"], top["page"]) == ("report.pdf", 2)
-    assert events[-1][1] == {"not_found": False, "cited": [1]}
+    assert events[-1][1] == {"not_found": False, "cited": [1], "daily_remaining": None}
     answer = "".join(d["text"] for k, d in events if k == "token")
     assert "48 crore" in answer
 
@@ -216,4 +216,102 @@ def test_delete_and_clear(client, report_pdf, policy_docx):
 def test_config_is_served(client):
     cfg = client.get("/api/qa/config").json()
     assert cfg["params"]["temperature"]["default"] == 0.2
-    assert cfg["limits"]["allowed_extensions"] == [".pdf", ".docx"]
+    assert cfg["limits"]["allowed_extensions"] == [".pdf", ".docx", ".xlsx", ".xlsm"]
+    assert cfg["keys"] == {"mode": "user", "server_key": False, "server_models": ["claude-opus-5", "claude-haiku-4-5"],
+                           "user_keys": True, "daily_remaining": None}
+
+
+# ---------------------------------------------------------------- folders and spreadsheets
+
+def test_folder_paths_and_sheets_reach_sources_and_prompt(client, report_pdf, sales_xlsx):
+    sid = new_session(client)
+    r = client.post("/api/qa/ingest", data={"session_id": sid, "paths": json.dumps(["Board/2026/Q2", "Board/Finance"])},
+                    files=[("files", ("report.pdf", report_pdf)), ("files", ("sales.xlsx", sales_xlsx))])
+    assert [f["folder"] for f in r.json()["files"]] == ["Board/2026/Q2", "Board/Finance"]
+
+    events = sse_events(ask(client, sid, "South region Q2 revenue", params={"min_similarity": 0}))
+    sources = events[0][1]["sources"]
+    xl = next(s for s in sources if s["file_name"] == "sales.xlsx" and s["sheet"] == "Revenue")
+    assert xl["folder"] == "Board/Finance" and xl["row_start"] >= 2
+    assert all(s["folder"] == "Board/2026/Q2" for s in sources if s["file_name"] == "report.pdf")
+    prompt = FakeAdapter.calls[0].messages[-1]["content"]
+    assert 'source="Board/Finance/sales.xlsx, sheet &quot;Revenue&quot;, rows' in prompt
+    assert 'source="Board/2026/Q2/report.pdf, page' in prompt
+
+
+def test_bad_paths_field(client, report_pdf):
+    sid = new_session(client)
+    r = client.post("/api/qa/ingest", data={"session_id": sid, "paths": "{not json"},
+                    files=[("files", ("report.pdf", report_pdf))])
+    assert r.status_code == 400
+
+
+# ---------------------------------------------------------------- key modes and daily cap
+
+def server_client(settings, monkeypatch, **overrides):
+    fields = {**settings.__dict__, "key_mode": "server", "server_api_key": "sk-ant-server", **overrides}
+    monkeypatch.setattr(main, "get_adapter", lambda provider: FakeAdapter())
+    c = TestClient(main.create_app(settings.__class__(**fields), FakeEmbedder()))
+    token = c.post("/api/qa/auth", json={"passcode": PASSCODE}).json()["access_token"]
+    c.headers["Authorization"] = f"Bearer {token}"
+    return c
+
+
+def test_server_mode_uses_server_key_and_ignores_user_input(settings, monkeypatch, report_pdf):
+    c = server_client(settings, monkeypatch)
+    sid = new_session(c)
+    ingest(c, sid, [("report.pdf", report_pdf)])
+    body = {"session_id": sid, "question": "revenue target?", "provider": "openai", "model": ""}
+    r = c.post("/api/qa/ask", json=body, headers={"X-LLM-Key": "sk-user"})
+    assert r.status_code == 200
+    req = FakeAdapter.calls[-1]
+    assert (req.provider, req.api_key, req.model) == ("anthropic", "sk-ant-server", "claude-opus-5")
+    cfg = c.get("/api/qa/config").json()["keys"]
+    assert cfg["server_key"] is True and cfg["user_keys"] is False
+    assert "sk-ant-server" not in json.dumps(c.get("/api/qa/config").json())
+
+
+def test_server_mode_limits_models(settings, monkeypatch, report_pdf):
+    c = server_client(settings, monkeypatch)
+    sid = new_session(c)
+    ingest(c, sid, [("report.pdf", report_pdf)])
+    r = c.post("/api/qa/ask", json={"session_id": sid, "question": "revenue target?", "model": "gpt-9", "provider": "anthropic"})
+    assert r.status_code == 400 and r.json()["code"] == "invalid_model"
+    c.post("/api/qa/ask", json={"session_id": sid, "question": "revenue target?", "model": "claude-haiku-4-5", "provider": "anthropic"})
+    assert FakeAdapter.calls[-1].model == "claude-haiku-4-5"
+
+
+def test_server_mode_without_key_is_not_configured(settings, monkeypatch, report_pdf):
+    c = server_client(settings, monkeypatch, server_api_key="")
+    sid = new_session(c)
+    ingest(c, sid, [("report.pdf", report_pdf)])
+    r = c.post("/api/qa/ask", json={"session_id": sid, "question": "revenue target?", "provider": "anthropic"})
+    assert r.status_code == 503 and r.json()["code"] == "not_configured"
+
+
+def test_both_mode_prefers_user_key_when_given(settings, monkeypatch, report_pdf):
+    c = server_client(settings, monkeypatch, key_mode="both")
+    sid = new_session(c)
+    ingest(c, sid, [("report.pdf", report_pdf)])
+    c.post("/api/qa/ask", json={"session_id": sid, "question": "revenue target?", "provider": "anthropic", "model": "claude-opus-5"})
+    assert FakeAdapter.calls[-1].api_key == "sk-ant-server"
+    c.post("/api/qa/ask", json={"session_id": sid, "question": "revenue target?", "provider": "openai", "model": "some-model"},
+           headers={"X-LLM-Key": "sk-user"})
+    assert (FakeAdapter.calls[-1].provider, FakeAdapter.calls[-1].api_key) == ("openai", "sk-user")
+
+
+def test_daily_cap_counts_only_answered_server_questions(settings, monkeypatch, report_pdf):
+    c = server_client(settings, monkeypatch, daily_question_limit=2)
+    sid = new_session(c)
+    ingest(c, sid, [("report.pdf", report_pdf)])
+    ask_ = lambda q: c.post("/api/qa/ask", json={"session_id": sid, "question": q, "provider": "anthropic"})
+
+    assert sse_events(ask_("zebra giraffe safari"))[-1][1]["not_found"] is True  # no LLM call: not counted
+    FakeAdapter.error = LLMError("llm_error", "boom", 502)
+    assert ask_("revenue target?").status_code == 502  # provider failed: not counted
+    FakeAdapter.error = None
+    assert sse_events(ask_("revenue target?"))[-1][1]["daily_remaining"] == 1
+    assert sse_events(ask_("revenue target?"))[-1][1]["daily_remaining"] == 0
+    r = ask_("revenue target?")
+    assert r.status_code == 429 and r.json()["code"] == "daily_limit_reached"
+    assert c.get("/api/qa/config").json()["keys"]["daily_remaining"] == 0
