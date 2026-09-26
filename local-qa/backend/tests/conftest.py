@@ -82,7 +82,7 @@ def settings():
         daily_question_limit=0,
         access_passcode=PASSCODE, token_secret="test-secret", access_token_ttl_minutes=60,
         rate_limit_auth_per_15min=100, allowed_providers=["anthropic", "openai", "gemini", "openai_compatible"],
-        embedding_model="unused", allowed_origins=["http://localhost:8000"], max_file_mb=5, max_files=10,
+        embedding_model="unused", allowed_origins=["http://localhost:8000"], max_file_mb=5, max_zip_mb=5, max_files=10,
         max_total_pages=100, session_ttl_minutes=60, rate_limit_ask_per_min=100,
         rate_limit_ingest_per_hour=100, llm_timeout_s=10,
     )

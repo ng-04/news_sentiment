@@ -69,6 +69,55 @@ def parse_file(name: str, data: bytes) -> ParsedFile:
     raise ParseError("unsupported file type (only .pdf, .docx, .xlsx and .xlsm)")
 
 
+def expand_zip(zip_name: str, data: bytes, max_entry_bytes: int, max_entries: int,
+               max_total_bytes: int) -> tuple[list[tuple[str, str, bytes]], list[tuple[str, str]]]:
+    """Unpack supported files from a zip (e.g. OneDrive's "Download" of a folder).
+
+    Returns ([(file_name, folder, bytes)], [(path, reason) skipped]). Folder paths are kept;
+    if the entries don't already sit under one top-level folder, the zip's own name becomes
+    that folder, so citations still start with a recognisable folder name. Sizes are checked
+    from the zip headers before anything is extracted, then enforced while reading, which
+    guards against zip bombs.
+    """
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise ParseError("not a valid .zip file")
+    wanted, skipped = [], []
+    for info in zf.infolist():
+        path = info.filename.replace("\\", "/")
+        base = path.rsplit("/", 1)[-1]
+        if info.is_dir() or not base or path.startswith("__MACOSX/") or base.startswith((".", "~$")):
+            continue
+        if not base.lower().endswith(SUPPORTED_EXTENSIONS):
+            skipped.append((path, "unsupported file type"))
+        elif info.file_size > max_entry_bytes:
+            skipped.append((path, f"larger than {max_entry_bytes // (1024 * 1024)} MB"))
+        else:
+            wanted.append(info)
+    if len(wanted) > max_entries:
+        skipped += [(i.filename, "file limit reached") for i in wanted[max_entries:]]
+        wanted = wanted[:max_entries]
+    if sum(i.file_size for i in wanted) > max_total_bytes:
+        raise ParseError(f"zip expands to more than {max_total_bytes // (1024 * 1024)} MB")
+
+    tops = {i.filename.replace("\\", "/").split("/", 1)[0] for i in wanted if "/" in i.filename.replace("\\", "/")}
+    all_nested = all("/" in i.filename.replace("\\", "/") for i in wanted)
+    prefix = "" if (len(tops) == 1 and all_nested) else zip_name.rsplit(".", 1)[0]
+
+    out = []
+    for info in wanted:
+        path = info.filename.replace("\\", "/")
+        folder, _, base = path.rpartition("/")
+        with zf.open(info) as fh:
+            content = fh.read(max_entry_bytes + 1)
+        if len(content) > max_entry_bytes:  # header lied about the size
+            skipped.append((path, "larger than allowed"))
+            continue
+        out.append((base, normalize_folder(f"{prefix}/{folder}" if prefix else folder), content))
+    return out, skipped
+
+
 def normalize_folder(path: str | None) -> str:
     """Clean a client-supplied relative folder path: forward slashes, no leading slash,
     no '.' or '..' segments, at most 300 characters. Returns "" for the top level."""

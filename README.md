@@ -53,3 +53,38 @@ then visit http://localhost:8000.
    branch `main`, folder `/ (root)`, and save.
 4. The site will be live at `https://ng-04.github.io/news_sentiment/` within a minute
    or two.
+
+## Local Q&A
+
+A second tool: ask questions about your own PDF, Word and Excel files and get answers
+that cite the folder, file and page or sheet they came from. Upload files, a whole folder,
+or a OneDrive folder downloaded as a `.zip` (subfolders are kept).
+
+Unlike the sentiment tool it needs a small backend, in [`local-qa/backend`](local-qa/backend)
+(FastAPI; parsing, local embeddings, and Claude answers). Specs are in
+[`local-qa/`](local-qa): `goal.md`, `frontend.md`, `backend.md`, `config.md`.
+
+### Run it locally
+
+```bash
+cd local-qa/backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cp .env.example .env   # fill in ANTHROPIC_API_KEY, QA_ACCESS_PASSCODE, QA_TOKEN_SECRET
+.venv/bin/uvicorn app.main:app --port 8765
+```
+
+Then serve the site from the repo root (`python3 -m http.server 8000`) and open
+http://localhost:8000/#local-qa. The page talks to `http://localhost:8765` when opened from
+localhost, and to `https://local-qa-api.onrender.com` otherwise.
+
+### Deploy the backend (Render)
+
+1. On [render.com](https://render.com), sign in with GitHub and choose **New → Blueprint**, then
+   pick this repo. It reads [`render.yaml`](render.yaml).
+2. When asked, enter `ANTHROPIC_API_KEY` (your Claude key) and `QA_ACCESS_PASSCODE`. Other
+   settings (key mode, 200 questions/day cap, allowed models) come from the blueprint.
+3. If Render gives the service a URL other than `https://local-qa-api.onrender.com`, update
+   `API_BASE` in [`local-qa/qa-api.js`](local-qa/qa-api.js).
+
+The free plan sleeps after ~15 minutes idle: the first visit then takes up to a minute and
+uploaded documents are cleared. Set a monthly spend limit in the Anthropic console as a backstop.

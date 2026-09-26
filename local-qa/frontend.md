@@ -59,6 +59,8 @@ What the key UI shows depends on `keys.mode` from `GET /config` (see config.md):
 
 ## Documents panel
 
+> **v1 ships upload-only** (files, folders, and .zip downloads of OneDrive folders; zips keep their folder structure). F1–F3 (direct OneDrive sign-in) are deferred until an Azure app registration exists.
+
 | ID | Requirement |
 |---|---|
 | F1 | **Sign in with Microsoft** uses MSAL.js (auth code + PKCE) against the work/school authority (`organizations`), with the delegated, read-only scope `Files.Read.All`. That scope is needed because work folders are often shared from a colleague's OneDrive or a Teams/SharePoint site. The token stays in the browser and is never sent to our backend. If the user's organization requires admin approval, the sign-in error says so plainly. |

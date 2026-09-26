@@ -72,7 +72,8 @@ relative folder path, the same way it sends uploads.
 
 | Topic | Decision |
 |---|---|
-| OneDrive location | A **cloud folder** in a **work/school Microsoft 365** account, read after sign-in (share link or path), including all subfolders. Read-only `Files.Read.All`, so folders shared from colleagues or Teams sites work too. Some organizations require an IT admin to approve the app once. |
+| OneDrive in v1 (2026-09-26) | **Upload-first.** Users download their OneDrive folder as a .zip (or pick the synced folder) and upload it; folder paths are kept. Direct OneDrive sign-in below is deferred: it needs an Azure app registration, and a public link can't list a work/school folder without one. |
+| OneDrive location (deferred) | A **cloud folder** in a **work/school Microsoft 365** account, read after sign-in (share link or path), including all subfolders. Read-only `Files.Read.All`, so folders shared from colleagues or Teams sites work too. Some organizations require an IT admin to approve the app once. |
 | File types | PDF, Word (`.docx`) and Excel (`.xlsx`, `.xlsm`). Excel was added on 2026-09-25. |
 | Citations | Folder path relative to the chosen folder + file name + page, heading, or sheet and rows. |
 | LLM key (updated 2026-09-25) | **Configurable per deployment** with `QA_KEY_MODE`: <br>• `server`: one key held on the server (`ANTHROPIC_API_KEY`), used for every question; users see no key field. <br>• `user`: each user enters their own key for any supported provider (Anthropic, OpenAI, Gemini, OpenAI-compatible), as before. <br>• `both`: the server key by default, with users allowed to switch to their own. |

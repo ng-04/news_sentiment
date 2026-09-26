@@ -33,6 +33,7 @@ class Settings:
     embedding_model: str
     allowed_origins: list[str]
     max_file_mb: int
+    max_zip_mb: int
     max_files: int
     max_total_pages: int
     session_ttl_minutes: int
@@ -66,7 +67,8 @@ def load_settings() -> Settings:
         max_total_pages=_env_int("QA_MAX_TOTAL_PAGES", 1000),
         session_ttl_minutes=_env_int("QA_SESSION_TTL_MINUTES", 60),
         rate_limit_ask_per_min=_env_int("QA_RATE_LIMIT_ASK_PER_MIN", 10),
-        rate_limit_ingest_per_hour=_env_int("QA_RATE_LIMIT_INGEST_PER_HOUR", 20),
+        rate_limit_ingest_per_hour=_env_int("QA_RATE_LIMIT_INGEST_PER_HOUR", 120),
+        max_zip_mb=_env_int("QA_MAX_ZIP_MB", 50),
         llm_timeout_s=_env_int("QA_LLM_TIMEOUT_S", 60),
     )
 
@@ -159,7 +161,8 @@ def public_config(settings: Settings) -> dict:
             "max_file_mb": settings.max_file_mb,
             "max_files": settings.max_files,
             "max_total_pages": settings.max_total_pages,
-            "allowed_extensions": [".pdf", ".docx", ".xlsx", ".xlsm"],
+            "max_zip_mb": settings.max_zip_mb,
+            "allowed_extensions": [".pdf", ".docx", ".xlsx", ".xlsm", ".zip"],
         },
         "keys": {
             "mode": settings.key_mode,

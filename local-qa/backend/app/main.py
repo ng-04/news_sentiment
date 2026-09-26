@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from . import auth
 from .config import INDEXING_KEYS, ParamError, Settings, load_settings, public_config, resolve_params
 from .index import Embedder
-from .ingest import SUPPORTED_EXTENSIONS, ParseError, chunk_file, normalize_folder, parse_file
+from .ingest import SUPPORTED_EXTENSIONS, ParseError, chunk_file, expand_zip, normalize_folder, parse_file
 from .llm.base import NOT_FOUND_SENTENCE, LLMError, LLMRequest, build_prompt, check_base_url, get_adapter
 from .sessions import Session, SessionStore, StoredFile
 
@@ -149,21 +149,50 @@ def create_app(settings: Settings | None = None, embedder: Embedder | None = Non
             results = []
             for i, upload in enumerate(files):
                 folder = normalize_folder(str(folders[i])) if i < len(folders) and folders[i] else ""
-                results.append(await _ingest_one(session, upload, folder, indexing))
+                if (upload.filename or "").lower().endswith(".zip"):
+                    results.extend(await _ingest_zip(session, upload, folder, indexing))
+                else:
+                    results.append(await _ingest_one(session, upload, folder, indexing))
         return {"files": results}
+
+    def _failed(name: str, folder: str, reason: str) -> dict:
+        return {"file_id": None, "name": name, "folder": folder, "pages": None,
+                "chunks": 0, "status": "failed", "error": reason}
+
+    async def _ingest_zip(session: Session, upload: UploadFile, folder: str, indexing: dict) -> list[dict]:
+        name = (upload.filename or "upload.zip").rsplit("/", 1)[-1].rsplit("\\", 1)[-1][:200]
+        limit = settings.max_zip_mb * 1024 * 1024
+        data = await upload.read(limit + 1)
+        if len(data) > limit:
+            return [_failed(name, folder, f"zip larger than {settings.max_zip_mb} MB")]
+        room = max(0, settings.max_files - len(session.files))
+        try:
+            entries, skipped = await asyncio.to_thread(
+                expand_zip, name, data, settings.max_file_mb * 1024 * 1024, room,
+                settings.max_total_pages * 2 * 1024 * 1024)
+        except ParseError as e:
+            return [_failed(name, folder, str(e))]
+        results = [await _ingest_bytes(session, base, normalize_folder(f"{folder}/{sub}" if folder else sub),
+                                       content, indexing) for base, sub, content in entries]
+        for path, reason in skipped:
+            sub_folder, _, base = path.rpartition("/")
+            results.append(_failed(base, normalize_folder(f"{folder}/{sub_folder}" if folder else sub_folder), reason))
+        return results
 
     async def _ingest_one(session: Session, upload: UploadFile, folder: str, indexing: dict) -> dict:
         name = (upload.filename or "file").rsplit("/", 1)[-1].rsplit("\\", 1)[-1][:200]
-        fail = lambda reason: {"file_id": None, "name": name, "folder": folder, "pages": None,
-                               "chunks": 0, "status": "failed", "error": reason}
         if not name.lower().endswith(SUPPORTED_EXTENSIONS):
-            return fail("unsupported file type (only .pdf, .docx, .xlsx and .xlsm)")
-        if len(session.files) >= settings.max_files:
-            return fail(f"file limit reached ({settings.max_files} per session)")
+            return _failed(name, folder, "unsupported file type (only .pdf, .docx, .xlsx, .xlsm and .zip)")
         limit = settings.max_file_mb * 1024 * 1024
         data = await upload.read(limit + 1)
         if len(data) > limit:
-            return fail(f"larger than {settings.max_file_mb} MB")
+            return _failed(name, folder, f"larger than {settings.max_file_mb} MB")
+        return await _ingest_bytes(session, name, folder, data, indexing)
+
+    async def _ingest_bytes(session: Session, name: str, folder: str, data: bytes, indexing: dict) -> dict:
+        fail = lambda reason: _failed(name, folder, reason)
+        if len(session.files) >= settings.max_files:
+            return fail(f"file limit reached ({settings.max_files} per session)")
         try:
             parsed = await asyncio.to_thread(parse_file, name, data)
         except ParseError as e:

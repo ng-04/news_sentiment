@@ -216,7 +216,7 @@ def test_delete_and_clear(client, report_pdf, policy_docx):
 def test_config_is_served(client):
     cfg = client.get("/api/qa/config").json()
     assert cfg["params"]["temperature"]["default"] == 0.2
-    assert cfg["limits"]["allowed_extensions"] == [".pdf", ".docx", ".xlsx", ".xlsm"]
+    assert cfg["limits"]["allowed_extensions"] == [".pdf", ".docx", ".xlsx", ".xlsm", ".zip"]
     assert cfg["keys"] == {"mode": "user", "server_key": False, "server_models": ["claude-opus-5", "claude-haiku-4-5"],
                            "user_keys": True, "daily_remaining": None}
 
@@ -315,3 +315,44 @@ def test_daily_cap_counts_only_answered_server_questions(settings, monkeypatch, 
     r = ask_("revenue target?")
     assert r.status_code == 429 and r.json()["code"] == "daily_limit_reached"
     assert c.get("/api/qa/config").json()["keys"]["daily_remaining"] == 0
+
+
+def _zip(entries: dict[str, bytes]) -> bytes:
+    import io, zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in entries.items():
+            z.writestr(name, data)
+    return buf.getvalue()
+
+
+def test_zip_upload_keeps_folders(client, report_pdf, sales_xlsx):
+    sid = new_session(client)
+    z = _zip({"Board Reports/2026/Q2/report.pdf": report_pdf, "Board Reports/Finance/sales.xlsx": sales_xlsx,
+              "Board Reports/notes.txt": b"skip me", "__MACOSX/Board Reports/._x.pdf": b"junk",
+              "Board Reports/~$lock.docx": b"junk"})
+    files = ingest(client, sid, [("OneDrive_2026.zip", z)]).json()["files"]
+    got = {(f["folder"], f["name"], f["status"]) for f in files}
+    assert ("Board Reports/2026/Q2", "report.pdf", "ready") in got
+    assert ("Board Reports/Finance", "sales.xlsx", "ready") in got
+    assert ("Board Reports", "notes.txt", "failed") in got
+    assert len(files) == 3  # macOS metadata and Office lock files are ignored silently
+
+
+def test_flat_zip_uses_zip_name_as_folder(client, report_pdf):
+    sid = new_session(client)
+    files = ingest(client, sid, [("Q2 pack.zip", _zip({"report.pdf": report_pdf, "sub/report.pdf": report_pdf}))]).json()["files"]
+    assert sorted(f["folder"] for f in files) == ["Q2 pack", "Q2 pack/sub"]
+
+
+def test_zip_bombs_and_bad_zips_are_rejected(client, settings):
+    sid = new_session(client)
+    big = _zip({f"f{i}.pdf": b"0" * (4 * 1024 * 1024) for i in range(3)})  # compresses tiny, expands to 12 MB
+    small = settings.__class__(**{**settings.__dict__, "max_total_pages": 2})
+    c = TestClient(main.create_app(small, FakeEmbedder()))
+    c.headers["Authorization"] = client.headers["Authorization"]
+    sid2 = c.post("/api/qa/session").json()["session_id"]
+    r = c.post("/api/qa/ingest", data={"session_id": sid2}, files=[("files", ("bomb.zip", big))])
+    assert r.json()["files"][0]["error"].startswith("zip expands to more than")
+    r = ingest(client, sid, [("bad.zip", b"PK nope")])
+    assert r.json()["files"][0]["error"] == "not a valid .zip file"
