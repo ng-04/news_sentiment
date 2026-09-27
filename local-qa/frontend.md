@@ -99,6 +99,25 @@ What the key UI shows depends on `keys.mode` from `GET /config` (see config.md):
 | F11 | The last N turns (see config) are sent with each question so follow-up questions work. |
 | F12 | Errors (backend down or cold-starting, rate limit, daily limit reached, expired access token, invalid or out-of-credit API key) are shown inline with a retry action and never fail silently. Because the free Render plan sleeps, the first request after idle shows "Waking the server up, this can take up to a minute…" rather than an error. |
 
+## Memory (G11)
+
+| ID | Requirement |
+|---|---|
+| M1 | The conversation (questions, answers, sources, notes, chart proposals and charts) is saved in IndexedDB after every turn and restored when the page opens. Follow-up memory (`history_turns`) keeps working across reloads. |
+| M2 | Indexed documents are saved too: file records (name, folder, pages/sheets), parsed text units, chunks and their 384-dimension vectors, plus the indexing settings they were built with. On load they are restored without re-reading files, and the list shows them as ready. |
+| M3 | **Clear chat** (next to the Ask heading) deletes the saved conversation. **Clear all** in Documents also deletes the saved documents. A line under the privacy note says what is stored on this device. |
+| M4 | If IndexedDB is unavailable (private window, blocked storage) the tool still works for the tab, just without saving; nothing breaks. |
+
+## Charts (G12)
+
+| ID | Requirement |
+|---|---|
+| C1 | Claude gets a `propose_chart` tool. When a question asks for a chart, graph, plot or visual comparison, it calls the tool instead of drawing anything itself. The system prompt lists the indexed spreadsheets (file, folder, sheet, column headers, row count) so it can point at real columns. |
+| C2 | Two data sources. **Spreadsheet:** Claude gives the file, sheet, category column, one or more value columns, aggregation (`sum`, `average`, `count`, `min`, `max`, `none`) and optional filters; the page computes the values from every row of that sheet. **Excerpts:** Claude gives labels and values quoted from retrieved passages, each value with its excerpt number. |
+| C3 | The proposal is shown as a table before anything is drawn: a settings table (chart type, X axis, Y values, aggregation, source) and the exact data table to be plotted (up to 50 rows shown). Buttons: **Plot chart** and **Cancel**. To change the plan, the user replies in the chat and Claude proposes again. |
+| C4 | After **Plot chart**, a bar, line or pie chart is drawn in the answer, styled with the site's tokens and dark mode, with the source line (e.g. `Board Reports/Finance/Revenue.xlsx · sheet "Revenue" · rows 2–40`) and **Download PNG** / **Download CSV**. Excerpt-based charts are labelled "figures quoted from the documents". |
+| C5 | Tool inputs are validated in the browser (known chart type, existing sheet and columns, numeric values, at most 50 categories and 6 series); an invalid proposal becomes a plain message asking the user to rephrase. |
+
 ## Advanced settings panel
 
 | ID | Requirement |

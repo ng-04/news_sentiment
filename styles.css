@@ -931,3 +931,50 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
 .qa-nowrap { flex-wrap: nowrap; gap: 8px; }
 .qa-flex-1 { flex: 1; }
 .qa-inline-link { font-size: inherit; font-weight: 500; }
+
+/* Local Q&A charts. Series colours: validated with the dataviz palette checker against this
+   site's surfaces (light #ffffff, dark #0f2540): CVD separation, normal-vision floor and lightness
+   band pass in both modes; three light-mode slots sit below 3:1, so charts always ship with their
+   data table. Slot 1 is the site blue; 2–6 are the reference palette's orange, aqua, yellow,
+   magenta, green (the same 2–3 the stock comparison chart already uses). */
+:root {
+  --qa-series-1: #1a56db; --qa-series-2: #eb6834; --qa-series-3: #1baf7a;
+  --qa-series-4: #eda100; --qa-series-5: #e87ba4; --qa-series-6: #008300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --qa-series-1: #4d82f0; --qa-series-2: #d95926; --qa-series-3: #199e70;
+    --qa-series-4: #c98500; --qa-series-5: #d55181; --qa-series-6: #008300;
+  }
+}
+:root[data-theme="dark"] {
+  --qa-series-1: #4d82f0; --qa-series-2: #d95926; --qa-series-3: #199e70;
+  --qa-series-4: #c98500; --qa-series-5: #d55181; --qa-series-6: #008300;
+}
+.qa-chart-block { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--gray-100); padding-top: 12px; }
+.qa-chart-ask { margin: 0; font-size: 0.92rem; }
+.qa-table-label { margin: 4px 0 0; }
+.qa-table-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--gray-100); border-radius: 8px; }
+.qa-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.qa-table th, .qa-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+.qa-table thead th { position: sticky; top: 0; background: var(--bg-alt); color: var(--heading); font-weight: 600; }
+.qa-table tbody th { font-weight: 500; color: var(--ink); }
+.qa-table .qa-num { text-align: right; font-variant-numeric: tabular-nums; }
+.qa-table-settings { border: 1px solid var(--gray-100); border-radius: 8px; overflow: hidden; }
+.qa-table-settings th { width: 34%; color: var(--gray-600); font-weight: 600; background: var(--bg-alt); }
+.qa-ref { color: var(--gray-600); font-size: 0.78rem; }
+.qa-chart-confirm { gap: 10px; }
+.qa-chart { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.qa-chart-title { font-weight: 700; color: var(--heading); }
+.qa-chart-plot { position: relative; }
+.qa-chart-plot svg { width: 100%; height: auto; display: block; }
+.qa-chart-tip { position: absolute; z-index: 2; min-width: 140px; max-width: 220px; padding: 8px 10px; border-radius: 6px; background: var(--bg); color: var(--ink); border: 1px solid var(--gray-300); box-shadow: 0 4px 12px rgba(11, 35, 64, 0.18); font-size: 0.8rem; pointer-events: none; }
+.qa-tip-head { font-weight: 700; color: var(--heading); margin-bottom: 4px; }
+.qa-tip-row { display: flex; align-items: center; gap: 6px; }
+.qa-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--ink); }
+.qa-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.qa-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.qa-chart-source { font-size: 0.78rem; }
+.qa-chart-actions { gap: 16px; }
+.qa-chart-data summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blue); }
+.qa-chart-data[open] { display: flex; flex-direction: column; gap: 8px; }
