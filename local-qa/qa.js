@@ -703,10 +703,12 @@ async function askQuestion(question, { retry = false } = {}) {
     const q = await engine.queryVector(question, history);
     const hits = state.index.search(q, s);
     // Chart requests may need a spreadsheet even when no passage matches the wording.
+    // Chart requests always go to Claude: a chart can come from a spreadsheet or from the documents
+    // themselves (e.g. words per page) even when no passage matches the wording.
     const wantsChart = engine.CHART_WORDS.test(question);
-    const catalog = wantsChart ? engine.spreadsheetCatalog(files) : '';
+    const catalog = wantsChart ? engine.chartCatalog(files) : '';
     let rec;
-    if (!hits.length && !catalog) {
+    if (!hits.length && !wantsChart) {
       rec = { role: 'bot', kind: 'notfound', id };
     } else {
       answerEl.firstChild.textContent = 'Thinking…';
