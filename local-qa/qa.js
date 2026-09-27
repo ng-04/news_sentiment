@@ -61,10 +61,22 @@ const hideStatus = () => { $('qa-status').hidden = true; };
 // ------------------------------------------------------------------ key and model
 
 const readKey = () => session.get('localqa.apiKey') || local.get('localqa.apiKey') || '';
+const readWorkspace = () => session.get('localqa.workspace') || local.get('localqa.workspace') || '';
 function storeKey(key) {
   const remember = $('qa-remember-key').checked;
   session.set('localqa.apiKey', remember ? null : key || null);
   local.set('localqa.apiKey', remember ? key || null : null);
+  storeWorkspace(readWorkspace());
+}
+function storeWorkspace(id) {
+  const remember = $('qa-remember-key').checked;
+  session.set('localqa.workspace', remember ? null : id || null);
+  local.set('localqa.workspace', remember ? id || null : null);
+}
+function showWorkspaceField(focus = false) {
+  $('qa-ws-wrap').hidden = false;
+  $('qa-ws-toggle').hidden = true;
+  if (focus) $('qa-workspace').focus();
 }
 const model = () => $('qa-model').value;
 
@@ -76,6 +88,8 @@ function renderKey() {
     if (engine.MODELS.includes(saved)) select.value = saved;
   }
   $('qa-api-key').value = readKey();
+  $('qa-workspace').value = readWorkspace();
+  if (readWorkspace()) showWorkspaceField();
   $('qa-remember-key').checked = !!local.get('localqa.apiKey');
   paintKeyBadge();
 }
@@ -97,10 +111,18 @@ function wire() {
     updateAskState();
   });
   $('qa-remember-key').addEventListener('change', () => storeKey(readKey()));
+  $('qa-ws-toggle').addEventListener('click', () => showWorkspaceField(true));
+  $('qa-workspace').addEventListener('input', () => {
+    storeWorkspace($('qa-workspace').value.trim());
+    $('qa-key-status').textContent = '';
+  });
   $('qa-forget-key').addEventListener('click', () => {
     session.set('localqa.apiKey', null);
     local.set('localqa.apiKey', null);
+    session.set('localqa.workspace', null);
+    local.set('localqa.workspace', null);
     $('qa-api-key').value = '';
+    $('qa-workspace').value = '';
     $('qa-remember-key').checked = false;
     $('qa-key-status').textContent = 'Key forgotten.';
     paintKeyBadge();
@@ -111,11 +133,12 @@ function wire() {
     if (!readKey()) { status.textContent = 'Enter a key first.'; return; }
     status.textContent = 'Testing…';
     try {
-      await engine.testKey(readKey());
+      await engine.testKey(readKey(), readWorkspace());
       status.textContent = '✓ Key works';
       paintKeyBadge(true);
     } catch (e) {
       status.textContent = e.message;
+      if (e.code === 'needs_workspace' || e.code === 'bad_workspace') showWorkspaceField(true);
     }
   });
   $('qa-model').addEventListener('change', () => {
@@ -613,7 +636,7 @@ async function askQuestion(question, { retry = false } = {}) {
     }
     answerEl.firstChild.textContent = 'Thinking…';
     const { system, messages } = engine.buildPrompt(question, hits, history, s);
-    const { notes } = await engine.streamAnswer({ apiKey: readKey(), model: model(), system, messages, settings: s }, (delta) => {
+    const { notes } = await engine.streamAnswer({ apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s }, (delta) => {
       if (!text) answerEl.replaceChildren();
       text += delta;
       answerEl.textContent = text;
@@ -637,6 +660,7 @@ async function askQuestion(question, { retry = false } = {}) {
       el('button', { type: 'button', class: 'btn-link', text: 'Try again',
         onclick: () => { bubble.remove(); askQuestion(question, { retry: true }); } }));
     if (e.code === 'invalid_api_key') $('qa-api-key').focus();
+    if (e.code === 'needs_workspace' || e.code === 'bad_workspace') showWorkspaceField(true);
     state.asking = false;
     updateAskState();
   }

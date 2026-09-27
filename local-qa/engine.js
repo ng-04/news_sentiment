@@ -475,6 +475,12 @@ function mapError(Anthropic, e) {
   if (e instanceof Anthropic.RateLimitError) return new EngineError('rate_limited', 'Anthropic’s rate limit for this key was reached. Wait a moment and try again.');
   if (e instanceof Anthropic.BadRequestError) {
     if (/credit balance/i.test(e.message)) return new EngineError('no_credit', 'This Anthropic account is out of credit.');
+    if (/not scoped to a workspace/i.test(e.message)) {
+      return new EngineError('needs_workspace', 'This key isn’t tied to a workspace, so Anthropic needs a workspace ID. Enter it in the Workspace ID field above, or create a key inside a workspace.');
+    }
+    if (/workspace/i.test(e.message)) {
+      return new EngineError('bad_workspace', 'Anthropic didn’t accept that workspace ID. Copy it again from console.anthropic.com → Settings → Workspaces (it starts with wrkspc_).');
+    }
     return new EngineError('bad_request', `Anthropic rejected the request: ${e.message}`);
   }
   if (e instanceof Anthropic.APIConnectionTimeoutError) return new EngineError('timeout', 'Anthropic took too long to respond.');
@@ -484,10 +490,12 @@ function mapError(Anthropic, e) {
 }
 
 /** Streams an answer. onText(delta) receives text as it arrives; returns {notes}. */
-export async function streamAnswer({ apiKey, model, system, messages, settings }, onText) {
+export async function streamAnswer({ apiKey, workspaceId, model, system, messages, settings }, onText) {
   const { Anthropic, client: c } = await client(apiKey);
   const notes = [];
   const params = { model, max_tokens: settings.max_answer_tokens, system, messages };
+  // Sent as the anthropic-workspace-id header; only needed for keys that span several workspaces.
+  if (workspaceId) params.workspace_id = workspaceId;
   if (startsWithAny(model, TEMPERATURE_OK)) params.temperature = settings.temperature;
   else notes.push(`${model} doesn’t support temperature, so that setting was ignored.`);
   if (startsWithAny(model, EFFORT_OK)) {
@@ -509,10 +517,11 @@ export async function streamAnswer({ apiKey, model, system, messages, settings }
 }
 
 /** Cheap check that a key works: a one-word reply from the smallest model. */
-export async function testKey(apiKey) {
+export async function testKey(apiKey, workspaceId) {
   const { Anthropic, client: c } = await client(apiKey);
   try {
-    await c.messages.create({ model: 'claude-haiku-4-5', max_tokens: 5, messages: [{ role: 'user', content: 'Say OK.' }] });
+    await c.messages.create({ model: 'claude-haiku-4-5', max_tokens: 5, messages: [{ role: 'user', content: 'Say OK.' }],
+      ...(workspaceId ? { workspace_id: workspaceId } : {}) });
   } catch (e) {
     throw mapError(Anthropic, e);
   }

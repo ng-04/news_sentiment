@@ -208,6 +208,12 @@
               <p class="qa-help">Opus is the most capable; Haiku is fastest and cheapest.</p>
             </div>
           </div>
+          <button type="button" class="btn-link qa-muted qa-inline-link qa-ws-toggle" id="qa-ws-toggle">Using an organization-wide key? Add a workspace ID</button>
+          <div class="qa-col qa-ws" id="qa-ws-wrap" hidden>
+            <label class="qa-label" for="qa-workspace">Workspace ID</label>
+            <input id="qa-workspace" class="qa-field" type="text" placeholder="wrkspc_…" autocomplete="off" spellcheck="false">
+            <p class="qa-help">Only needed if your key isn’t tied to a workspace. Find it at console.anthropic.com → Settings → Workspaces (click the workspace; the ID starts with <code>wrkspc_</code>).</p>
+          </div>
           <div class="qa-row qa-row-center qa-key-actions">
             <label class="qa-check"><input type="checkbox" id="qa-remember-key"> Remember on this device</label>
             <button type="button" class="btn qa-btn-secondary" id="qa-test-key">Test key</button>

@@ -923,6 +923,8 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
   .qa-reindex { flex-wrap: wrap; }
 }
 .qa-key-actions { margin-top: 16px; }
+.qa-ws-toggle { margin-top: 12px; }
+.qa-ws { margin-top: 12px; max-width: 420px; }
 .qa-key-note { margin-top: 12px; }
 .qa-add-grid { align-items: stretch; }
 .qa-source-box { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--gray-100); border-radius: var(--radius); background: var(--bg-alt); }
