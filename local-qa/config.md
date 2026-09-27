@@ -1,5 +1,11 @@
 # Local Q&A — Configuration
 
+> **v1 (browser-only):** the user-facing parameters below live in `PARAMS` in
+> `local-qa/engine.js`, with one difference: `min_similarity` defaults to **0.50** in the
+> browser, because the quantized in-browser model scores unrelated text at about 0.36–0.45 and
+> real matches at 0.56 or more. Browser limits: 20 MB per file, 100 MB per zip, 200 files per
+> tab. Server-only settings don't apply to v1.
+
 The single source of truth for every tunable value. The backend loads this schema in
 `app/config.py` and serves it at `GET /api/qa/config`, and the frontend builds the
 settings panel from that response.

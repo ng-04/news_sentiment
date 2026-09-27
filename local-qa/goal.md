@@ -70,6 +70,14 @@ relative folder path, the same way it sends uploads.
 
 ## Decisions
 
+> **v1 runs entirely in the browser (decided 2026-09-27).** There is no server. Files are read,
+> chunked, embedded and searched inside the visitor's browser tab, and questions go straight
+> from the browser to Anthropic with the visitor's own Claude API key, which they type into the
+> page. It costs nothing to host, never sleeps, and documents never leave the device except the
+> passages sent with a question. The trade-offs: everyone needs their own key, so there is no
+> passcode, no shared site key and no daily cap, and v1 is Claude-only. The server design in the
+> rows below (and in backend.md) is kept for a possible later "shared key" version.
+
 | Topic | Decision |
 |---|---|
 | OneDrive in v1 (2026-09-26) | **Upload-first.** Users download their OneDrive folder as a .zip (or pick the synced folder) and upload it; folder paths are kept. Direct OneDrive sign-in below is deferred: it needs an Azure app registration, and a public link can't list a work/school folder without one. |

@@ -56,35 +56,20 @@ then visit http://localhost:8000.
 
 ## Local Q&A
 
-A second tool: ask questions about your own PDF, Word and Excel files and get answers
-that cite the folder, file and page or sheet they came from. Upload files, a whole folder,
-or a OneDrive folder downloaded as a `.zip` (subfolders are kept).
+A second tool: ask questions about your own PDF, Word and Excel files and get answers that
+cite the folder, file and page or sheet they came from. Add files, a whole folder, or a
+OneDrive folder downloaded as a `.zip` (subfolders are kept).
 
-Unlike the sentiment tool it needs a small backend, in [`local-qa/backend`](local-qa/backend)
-(FastAPI; parsing, local embeddings, and Claude answers). Specs are in
-[`local-qa/`](local-qa): `goal.md`, `frontend.md`, `backend.md`, `config.md`.
+It runs entirely in the browser, with no backend: files are read, split and searched inside the
+tab ([`local-qa/engine.js`](local-qa/engine.js)), and questions go straight to Anthropic using
+the visitor's own Claude API key, typed into the page. Nothing is uploaded anywhere except the
+passages relevant to a question. The first time you add files, the page downloads a ~34 MB
+search model, which the browser then caches.
 
-### Run it locally
+Specs are in [`local-qa/`](local-qa): `goal.md`, `frontend.md`, `backend.md`, `config.md`.
+[`local-qa/backend`](local-qa/backend) holds an optional FastAPI version of the same pipeline
+(not used by the site), kept for a possible shared-key setup.
 
-```bash
-cd local-qa/backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env   # fill in ANTHROPIC_API_KEY, QA_ACCESS_PASSCODE, QA_TOKEN_SECRET
-.venv/bin/uvicorn app.main:app --port 8765
-```
-
-Then serve the site from the repo root (`python3 -m http.server 8000`) and open
-http://localhost:8000/#local-qa. The page talks to `http://localhost:8765` when opened from
-localhost, and to `https://local-qa-api.onrender.com` otherwise.
-
-### Deploy the backend (Render)
-
-1. On [render.com](https://render.com), sign in with GitHub and choose **New → Blueprint**, then
-   pick this repo. It reads [`render.yaml`](render.yaml).
-2. When asked, enter `ANTHROPIC_API_KEY` (your Claude key) and `QA_ACCESS_PASSCODE`. Other
-   settings (key mode, 200 questions/day cap, allowed models) come from the blueprint.
-3. If Render gives the service a URL other than `https://local-qa-api.onrender.com`, update
-   `API_BASE` in [`local-qa/qa-api.js`](local-qa/qa-api.js).
-
-The free plan sleeps after ~15 minutes idle: the first visit then takes up to a minute and
-uploaded documents are cleared. Set a monthly spend limit in the Anthropic console as a backstop.
+To try it locally, serve the repo root (`python3 -m http.server 8000`) and open
+http://localhost:8000/#local-qa. Get an API key at https://console.anthropic.com/settings/keys,
+and consider setting a monthly spend limit there.
