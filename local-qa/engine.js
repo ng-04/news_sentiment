@@ -9,7 +9,7 @@ const CDN = {
   mammoth: 'https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js',
   xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs',
   jszip: 'https://cdn.jsdelivr.net/npm/jszip@3.10.2/+esm',
-  transformers: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0/+esm',
+  transformers: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm',
   anthropic: 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.128.0/+esm',
 };
 const EMBEDDING_MODEL = 'Xenova/bge-small-en-v1.5';
@@ -78,14 +78,26 @@ const loadJszip = once(async () => (await import(CDN.jszip)).default);
 const loadAnthropic = once(async () => (await import(CDN.anthropic)).default);
 
 let extractorPromise = null;
-/** Loads the embedding model (~34 MB the first time, then cached by the browser). */
+/** Loads the embedding model (~34 MB the first time, then cached by the browser). It's served
+ *  from this site (local-qa/models/) so it doesn't depend on Hugging Face; only if that fails
+ *  does it fall back to downloading from Hugging Face. */
 export function loadEmbedder(onProgress = () => {}) {
   extractorPromise ||= (async () => {
-    const { pipeline } = await import(CDN.transformers);
-    return pipeline('feature-extraction', EMBEDDING_MODEL, {
+    const { pipeline, env } = await import(CDN.transformers);
+    const options = {
       dtype: 'q8',
       progress_callback: (p) => { if (p.status === 'progress' && p.total) onProgress(p.loaded / p.total); },
-    });
+    };
+    try {
+      env.allowLocalModels = true;
+      env.allowRemoteModels = false;
+      env.localModelPath = new URL('models/', import.meta.url).href;
+      return await pipeline('feature-extraction', EMBEDDING_MODEL, options);
+    } catch (e) {
+      env.allowLocalModels = false;
+      env.allowRemoteModels = true;
+      return pipeline('feature-extraction', EMBEDDING_MODEL, options);
+    }
   })().catch((e) => { extractorPromise = null; throw e; });
   return extractorPromise;
 }

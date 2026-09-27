@@ -25,6 +25,7 @@
   <symbol id="qa-i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol id="qa-i-spark" viewBox="0 0 24 24"><path d="M12 3v4"/><path d="M12 17v4"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="M6 6l2.5 2.5"/><path d="M15.5 15.5L18 18"/><path d="M6 18l2.5-2.5"/><path d="M15.5 8.5L18 6"/></symbol>
   <symbol id="qa-i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M17 6l3 3"/></symbol>
+  <symbol id="qa-i-cloud" viewBox="0 0 24 24"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8H7z"/></symbol>
   <symbol id="qa-i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 20h16"/></symbol>
   <symbol id="qa-i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
   <symbol id="qa-i-sheet" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3v18"/></symbol>
@@ -181,9 +182,9 @@
         <p class="eyebrow">Live Tool</p>
         <h2>Local Q&amp;A</h2>
         <p class="section-lead qa-lead">
-          Ask questions about your own PDF, Word and Excel files. Add files, a whole folder, or a
-          OneDrive folder downloaded as a .zip, and every answer cites the folder, file and page or sheet
-          it came from. Everything runs in your browser with your own Claude API key.
+          Ask questions about your own PDF, Word and Excel files. Load a OneDrive or SharePoint folder
+          by signing in with Microsoft, or add files, a whole folder or a .zip, and every answer cites the
+          folder, file and page or sheet it came from. Everything runs in your browser with your own Claude API key.
         </p>
       </div>
 
@@ -221,18 +222,40 @@
             <h3>1. Add documents</h3>
             <button type="button" class="btn-link qa-muted" id="qa-clear" hidden>Clear all</button>
           </div>
-          <div class="qa-drop" id="qa-drop">
-            <svg class="qa-i qa-i-lg" aria-hidden="true"><use href="#qa-i-upload"/></svg>
-            <strong>Drop files or a whole folder here</strong>
-            <span class="qa-help">
-              or <label class="qa-linklike" for="qa-file-input">choose files</label> ·
-              <label class="qa-linklike" for="qa-folder-input">choose a folder</label>
-            </span>
-            <span class="qa-help qa-small" id="qa-limits">.pdf, .docx, .xlsx and .zip</span>
-            <input id="qa-file-input" class="qa-sr-only" type="file" multiple accept=".pdf,.docx,.xlsx,.xlsm,.zip">
-            <input id="qa-folder-input" class="qa-sr-only" type="file" webkitdirectory multiple>
+          <div class="qa-grid-2 qa-add-grid">
+            <div class="qa-source-box" id="qa-onedrive">
+              <div class="qa-row qa-row-center qa-nowrap">
+                <svg class="qa-i qa-accent" aria-hidden="true"><use href="#qa-i-cloud"/></svg>
+                <span class="qa-label qa-flex-1">OneDrive or SharePoint folder</span>
+                <span class="qa-badge qa-badge-ok" id="qa-od-badge" hidden>Signed in</span>
+              </div>
+              <div class="qa-col" id="qa-od-signed-out">
+                <button type="button" class="btn qa-btn-secondary" id="qa-od-signin">Sign in with Microsoft</button>
+                <p class="qa-help" id="qa-od-note">Work or school account. Read-only access; files are read in your browser.</p>
+              </div>
+              <form class="qa-col" id="qa-od-signed-in" hidden>
+                <label class="qa-help" for="qa-od-folder">Share link, or a path in your OneDrive such as /Documents/Reports. Subfolders are included.</label>
+                <div class="qa-row">
+                  <input id="qa-od-folder" class="qa-field" type="text" autocomplete="off" spellcheck="false" placeholder="/Documents/Reports">
+                  <button type="submit" class="btn qa-btn-secondary" id="qa-od-load">Load</button>
+                </div>
+                <p class="qa-help"><span id="qa-od-account"></span> · <button type="button" class="btn-link qa-muted qa-inline-link" id="qa-od-signout">Sign out</button></p>
+              </form>
+              <p class="qa-error" id="qa-od-error" hidden></p>
+            </div>
+            <div class="qa-drop" id="qa-drop">
+              <svg class="qa-i qa-i-lg" aria-hidden="true"><use href="#qa-i-upload"/></svg>
+              <strong>Drop files or a whole folder here</strong>
+              <span class="qa-help">
+                or <label class="qa-linklike" for="qa-file-input">choose files</label> ·
+                <label class="qa-linklike" for="qa-folder-input">choose a folder</label>
+              </span>
+              <span class="qa-help qa-small" id="qa-limits">.pdf, .docx, .xlsx and .zip</span>
+              <input id="qa-file-input" class="qa-sr-only" type="file" multiple accept=".pdf,.docx,.xlsx,.xlsm,.zip">
+              <input id="qa-folder-input" class="qa-sr-only" type="file" webkitdirectory multiple>
+            </div>
           </div>
-          <p class="qa-help qa-tip">From OneDrive: open the folder at onedrive.com, choose <strong>Download</strong> to get a .zip, and drop it here. Subfolders are kept. Files are read in your browser and never uploaded anywhere.</p>
+          <p class="qa-help qa-tip">No sign-in? Drag your synced OneDrive folder here, or choose <strong>Download</strong> on a folder at onedrive.com and drop the .zip. Subfolders are kept. Files are read in your browser and never uploaded anywhere.</p>
 
           <div class="qa-col qa-progress-wrap" id="qa-progress" hidden>
             <div class="qa-row qa-help qa-between"><span id="qa-progress-label">Indexing</span><span id="qa-progress-count"></span></div>

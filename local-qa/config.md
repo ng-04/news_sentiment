@@ -73,7 +73,8 @@ are set by the operator through environment variables and are never exposed.
 | Where | Key | Value |
 |---|---|---|
 | `local-qa/qa-api.js` | `API_BASE` | Backend URL (decided at deploy time). |
-| `local-qa/onedrive.js` | `MSAL_CLIENT_ID` | Azure app registration client ID (public, not a secret). |
+| `local-qa/onedrive.js` | `MSAL_CLIENT_ID` | Azure app registration client ID (public, not a secret). Empty = the OneDrive box shows "not set up". |
+| `local-qa/onedrive.js` | redirect URI | `local-qa/auth-redirect.html` on the site's own origin (register it as an SPA redirect URI). |
 | `local-qa/onedrive.js` | `MSAL_AUTHORITY` | `https://login.microsoftonline.com/organizations` (work/school Microsoft 365 accounts). |
 | `local-qa/onedrive.js` | `GRAPH_SCOPES` | `["Files.Read.All"]` (read-only; covers folders shared from colleagues or Teams sites). |
 | `localStorage` | `localqa.settings` | The user's saved overrides of the user-facing parameters. |

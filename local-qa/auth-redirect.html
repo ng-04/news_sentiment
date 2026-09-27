@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Signing in…</title>
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; place-items: center; min-height: 100vh; color: #111827; background: #f7f9fc; }
+  @media (prefers-color-scheme: dark) { body { color: #eef1f6; background: #0a1c33; } }
+</style>
+</head>
+<body>
+<p id="msg">Finishing sign-in…</p>
+<!-- Microsoft sign-in (Local Q&A) returns here in the popup; this hands the result to the page
+     that opened it, which then closes the popup. -->
+<script type="module">
+  import { broadcastResponseToMainFrame } from 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.23.0/redirect-bridge/+esm';
+  broadcastResponseToMainFrame().catch(() => {
+    document.getElementById('msg').textContent = 'Sign-in finished. You can close this window.';
+  });
+</script>
+</body>
+</html>

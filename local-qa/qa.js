@@ -1,6 +1,7 @@
 // Local Q&A: everything runs in this browser tab. Files are read and indexed locally, and
 // questions go straight to Anthropic with the visitor's own API key.
 import * as engine from './engine.js';
+import * as onedrive from './onedrive.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...children) => {
@@ -123,11 +124,11 @@ function wire() {
   });
 
   $('qa-file-input').addEventListener('change', (ev) => {
-    addFiles([...ev.target.files].map((file) => ({ file, folder: '' })));
+    addFiles([...ev.target.files].map((file) => fromFile(file, '')));
     ev.target.value = '';
   });
   $('qa-folder-input').addEventListener('change', (ev) => {
-    addFiles([...ev.target.files].map((file) => ({ file, folder: dirname(file.webkitRelativePath) })));
+    addFiles([...ev.target.files].map((file) => fromFile(file, dirname(file.webkitRelativePath))));
     ev.target.value = '';
   });
   const drop = $('qa-drop');
@@ -174,6 +175,78 @@ function wire() {
   $('qa-privacy').textContent = 'Your files are read and searched inside this browser tab and are never uploaded. '
     + 'Only the passages relevant to a question are sent to Anthropic with your key. Closing the tab clears the documents. '
     + 'Scanned PDFs without a text layer aren’t supported yet.';
+}
+
+// ------------------------------------------------------------------ OneDrive (Microsoft Graph, in the browser)
+
+function showOdError(message) {
+  $('qa-od-error').textContent = message || '';
+  $('qa-od-error').hidden = !message;
+}
+
+async function renderOneDrive() {
+  if (!onedrive.isConfigured()) {
+    $('qa-od-signin').disabled = true;
+    $('qa-od-note').textContent = 'Direct OneDrive sign-in isn’t set up on this site yet. Use a synced folder or a .zip for now.';
+    return;
+  }
+  let account = null;
+  try { account = await onedrive.currentAccount(); } catch (e) { showOdError(e.message); }
+  $('qa-od-signed-out').hidden = !!account;
+  $('qa-od-signed-in').hidden = !account;
+  $('qa-od-badge').hidden = !account;
+  $('qa-od-account').textContent = account ? `Signed in as ${account.username}` : '';
+}
+
+function wireOneDrive() {
+  $('qa-od-signin').addEventListener('click', async () => {
+    showOdError('');
+    $('qa-od-signin').disabled = true;
+    try {
+      await onedrive.signIn();
+    } catch (e) {
+      showOdError(e.message);
+    } finally {
+      $('qa-od-signin').disabled = false;
+      renderOneDrive();
+    }
+  });
+  $('qa-od-signout').addEventListener('click', async () => {
+    await onedrive.signOut();
+    renderOneDrive();
+  });
+  $('qa-od-signed-in').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (state.busy) return;
+    showOdError('');
+    const input = $('qa-od-folder').value.trim();
+    local.set('localqa.odFolder', input);
+    $('qa-od-load').disabled = true;
+    try {
+      setProgress('Listing OneDrive folders…', 0.05);
+      const { files, skipped, truncated } = await onedrive.listFolder(input, {
+        isSupported: (n) => engine.isSupported(n) || n.toLowerCase().endsWith('.zip'),
+        maxFiles: Math.max(0, engine.LIMITS.maxFiles - state.files.size),
+        maxFileBytes: engine.LIMITS.maxFileMb * 1024 * 1024,
+        onProgress: ({ folder, found }) => setProgress(`Listing ${folder}/ …`, 0.05, `${found} found`),
+      });
+      for (const s of skipped) state.failed.push({ name: s.name, folder: s.folder, error: s.reason });
+      if (truncated) showStatus(`Only the first ${engine.LIMITS.maxFiles} files were loaded.`, { error: true });
+      if (!files.length) {
+        $('qa-progress').hidden = true;
+        renderFiles();
+        showOdError('No PDF, Word or Excel files were found in that folder.');
+        return;
+      }
+      await addFiles(files);
+    } catch (e) {
+      $('qa-progress').hidden = true;
+      showOdError(e.message);
+    } finally {
+      $('qa-od-load').disabled = false;
+    }
+  });
+  $('qa-od-folder').value = local.get('localqa.odFolder') || '';
 }
 
 // ------------------------------------------------------------------ settings
@@ -323,6 +396,9 @@ async function reindex() {
 
 // ------------------------------------------------------------------ adding files
 
+/** Every source (file picker, folder, drop, OneDrive) becomes {name, folder, size, read}. */
+const fromFile = (file, folder) => ({ name: file.name, folder, size: file.size, read: () => file.arrayBuffer() });
+
 function dirname(path) {
   const parts = (path || '').replace(/^\/+/, '').split('/');
   parts.pop();
@@ -331,11 +407,11 @@ function dirname(path) {
 
 async function collectDropped(dataTransfer) {
   const entries = [...dataTransfer.items].map((i) => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null)).filter(Boolean);
-  if (!entries.length) return [...dataTransfer.files].map((file) => ({ file, folder: '' }));
+  if (!entries.length) return [...dataTransfer.files].map((file) => fromFile(file, ''));
   const out = [];
   async function walk(entry) {
     if (entry.isFile) {
-      out.push({ file: await new Promise((res, rej) => entry.file(res, rej)), folder: dirname(entry.fullPath) });
+      out.push(fromFile(await new Promise((res, rej) => entry.file(res, rej)), dirname(entry.fullPath)));
     } else if (entry.isDirectory) {
       const reader = entry.createReader();
       for (;;) {
@@ -370,17 +446,16 @@ async function addFiles(items) {
   try {
     // Expand zips, then drop hidden/lock files and anything unsupported or oversized.
     const queue = [];
-    for (const { file, folder } of items) {
-      const name = file.name;
+    for (const { name, folder, size, read } of items) {
       if (name.startsWith('.') || name.startsWith('~$')) continue;
       if (name.toLowerCase().endsWith('.zip')) {
-        if (file.size > engine.LIMITS.maxZipMb * 1024 * 1024) {
+        if (size > engine.LIMITS.maxZipMb * 1024 * 1024) {
           state.failed.push({ name, folder, error: `zip larger than ${engine.LIMITS.maxZipMb} MB` });
           continue;
         }
         setProgress(`Unpacking ${name}…`, 0);
         try {
-          const { entries, skipped } = await engine.expandZip(name, await file.arrayBuffer());
+          const { entries, skipped } = await engine.expandZip(name, await read());
           for (const e of entries) queue.push({ name: e.name, folder: engine.normalizeFolder([folder, e.folder].filter(Boolean).join('/')), read: async () => e.buffer });
           for (const s of skipped) {
             const parts = s.path.split('/');
@@ -392,10 +467,10 @@ async function addFiles(items) {
         }
       } else if (!engine.isSupported(name)) {
         state.failed.push({ name, folder, error: 'unsupported file type' });
-      } else if (file.size > engine.LIMITS.maxFileMb * 1024 * 1024) {
+      } else if (size > engine.LIMITS.maxFileMb * 1024 * 1024) {
         state.failed.push({ name, folder, error: `larger than ${engine.LIMITS.maxFileMb} MB` });
       } else {
-        queue.push({ name, folder: engine.normalizeFolder(folder), read: () => file.arrayBuffer() });
+        queue.push({ name, folder: engine.normalizeFolder(folder), read });
       }
     }
     const room = engine.LIMITS.maxFiles - state.files.size;
@@ -643,6 +718,8 @@ function renderSources(sources, msgId) {
 // ------------------------------------------------------------------ start (last, so every helper above is defined)
 
 wire();
+wireOneDrive();
+renderOneDrive();
 loadSettings();
 renderKey();
 renderSettings();

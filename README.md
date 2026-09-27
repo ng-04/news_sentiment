@@ -60,15 +60,34 @@ A second tool: ask questions about your own PDF, Word and Excel files and get an
 cite the folder, file and page or sheet they came from. Add files, a whole folder, or a
 OneDrive folder downloaded as a `.zip` (subfolders are kept).
 
+It can also load a OneDrive or SharePoint folder directly: **Sign in with Microsoft**, then paste a
+folder path or share link (subfolders included). Sign-in and file access use MSAL.js and Microsoft
+Graph from the browser (read-only `Files.Read.All`).
+
 It runs entirely in the browser, with no backend: files are read, split and searched inside the
 tab ([`local-qa/engine.js`](local-qa/engine.js)), and questions go straight to Anthropic using
 the visitor's own Claude API key, typed into the page. Nothing is uploaded anywhere except the
-passages relevant to a question. The first time you add files, the page downloads a ~34 MB
-search model, which the browser then caches.
+passages relevant to a question. The first time you add files, the page loads a ~34 MB search
+model from this site ([`local-qa/models`](local-qa/models), MIT licensed), which the browser then caches.
 
 Specs are in [`local-qa/`](local-qa): `goal.md`, `frontend.md`, `backend.md`, `config.md`.
 [`local-qa/backend`](local-qa/backend) holds an optional FastAPI version of the same pipeline
 (not used by the site), kept for a possible shared-key setup.
+
+### Turning on "Sign in with Microsoft" (one-time)
+
+Until this is done the OneDrive box says sign-in isn't set up; the other ways of adding files work.
+
+1. At [portal.azure.com](https://portal.azure.com), signed in with your work account: **Microsoft Entra ID →
+   App registrations → New registration**. Name it "Local Q&A"; supported account types:
+   **Accounts in any organizational directory (multitenant)**.
+2. Redirect URI: platform **Single-page application (SPA)**, URL
+   `https://ng-04.github.io/news_sentiment/local-qa/auth-redirect.html`. After creating it, under
+   **Authentication** add `http://localhost:8000/local-qa/auth-redirect.html` too (for local testing).
+3. **API permissions → Add a permission → Microsoft Graph → Delegated → `Files.Read.All`**. If your
+   organization requires it, an admin clicks **Grant admin consent**.
+4. Copy the **Application (client) ID** from Overview into `MSAL_CLIENT_ID` in
+   [`local-qa/onedrive.js`](local-qa/onedrive.js). It is public, not a secret.
 
 To try it locally, serve the repo root (`python3 -m http.server 8000`) and open
 http://localhost:8000/#local-qa. Get an API key at https://console.anthropic.com/settings/keys,
