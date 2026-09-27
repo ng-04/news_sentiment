@@ -80,7 +80,8 @@ relative folder path, the same way it sends uploads.
 
 | Topic | Decision |
 |---|---|
-| OneDrive in v1 (2026-09-26) | **Upload-first.** Users download their OneDrive folder as a .zip (or pick the synced folder) and upload it; folder paths are kept. Direct OneDrive sign-in below is deferred: it needs an Azure app registration, and a public link can't list a work/school folder without one. |
+| OneDrive sign-in (2026-09-27) | **Added, browser-only.** "Sign in with Microsoft" (MSAL.js popup, work/school accounts, `Files.Read.All`) and Microsoft Graph calls run in the page; no server. Needs the Azure app's client ID in `local-qa/onedrive.js`; until then the box says it isn't set up. Synced folders and .zip downloads still work without sign-in. |
+| OneDrive in v1 (2026-09-26, superseded) | **Upload-first.** Users download their OneDrive folder as a .zip (or pick the synced folder) and upload it; folder paths are kept. Direct OneDrive sign-in below is deferred: it needs an Azure app registration, and a public link can't list a work/school folder without one. |
 | OneDrive location (deferred) | A **cloud folder** in a **work/school Microsoft 365** account, read after sign-in (share link or path), including all subfolders. Read-only `Files.Read.All`, so folders shared from colleagues or Teams sites work too. Some organizations require an IT admin to approve the app once. |
 | File types | PDF, Word (`.docx`) and Excel (`.xlsx`, `.xlsm`). Excel was added on 2026-09-25. |
 | Citations | Folder path relative to the chosen folder + file name + page, heading, or sheet and rows. |

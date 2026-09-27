@@ -7,8 +7,15 @@ no framework and no build step, with ES modules loaded from `index.html`.
 > describes, in the browser: pdf.js, mammoth and SheetJS read files, JSZip unpacks zips,
 > Transformers.js runs `bge-small-en-v1.5` for embeddings, and the official `@anthropic-ai/sdk`
 > (browser mode) streams answers. `local-qa/qa.js` is the UI. Libraries load from jsDelivr and
-> the SheetJS CDN, pinned to exact versions. Where this spec mentions the passcode (F0a), the
-> site key, OneDrive sign-in (F1–F3) or backend calls, v1 doesn't have them: the page shows a
+> the SheetJS CDN, pinned to exact versions; the embedding model is served from this site
+> (`local-qa/models/`, Transformers.js 3.8.1 for reliable local loading). **OneDrive (F1–F3) is in
+> v1, browser-only:** `local-qa/onedrive.js` signs in with MSAL.js 5 (popup landing on
+> `local-qa/auth-redirect.html`, which calls `broadcastResponseToMainFrame()`), then walks the folder
+> through Graph (`/me/drive/root:/{path}` or `/shares/u!{base64url}/driveItem`, `children` with
+> `@odata.nextLink` paging, following `remoteItem` shortcuts) and downloads each file from its
+> pre-authenticated `@microsoft.graph.downloadUrl`. Folder paths start with the chosen folder's
+> name. Where this spec mentions the passcode (F0a), the site key or backend calls, v1 doesn't
+> have them: the page shows a
 > **Claude API key** field (kept in `sessionStorage`, or `localStorage` with "Remember") and a
 > model picker (`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`). "Test key" makes a
 > 5-token call to `claude-haiku-4-5`.
@@ -69,7 +76,7 @@ What the key UI shows depends on `keys.mode` from `GET /config` (see config.md):
 
 ## Documents panel
 
-> **v1 ships upload-only** (files, folders, and .zip downloads of OneDrive folders; zips keep their folder structure). F1–F3 (direct OneDrive sign-in) are deferred until an Azure app registration exists.
+> **v1:** F1–F3 run in the browser (see the note at the top); files, folders and .zip downloads also work without signing in.
 
 | ID | Requirement |
 |---|---|
