@@ -70,6 +70,13 @@ the visitor's own Claude API key, typed into the page. Nothing is uploaded anywh
 passages relevant to a question. The first time you add files, the page loads a ~34 MB search
 model from this site ([`local-qa/models`](local-qa/models), MIT licensed), which the browser then caches.
 
+**Memory:** the chat and the indexed documents are saved in your browser (IndexedDB), so a reload
+keeps both; **Clear chat** and **Clear all** delete them. **Charts:** ask for one (e.g. "bar chart of
+Q2 revenue by region") and the page first shows what it would plot, with the settings and the exact
+data as a table, then draws it only after you click **Plot chart**. Spreadsheet charts are computed
+by the page from every row of the sheet; charts from PDF/Word figures show which passage each number
+came from. Charts can be downloaded as PNG or CSV.
+
 Specs are in [`local-qa/`](local-qa): `goal.md`, `frontend.md`, `backend.md`, `config.md`.
 [`local-qa/backend`](local-qa/backend) holds an optional FastAPI version of the same pipeline
 (not used by the site), kept for a possible shared-key setup.

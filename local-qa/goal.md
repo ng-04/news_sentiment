@@ -26,6 +26,8 @@ to ask questions like "What was the Q2 revenue target?" without opening every fi
 | G7 | The tool fits into the existing site: a tile on the "Pick a tool" grid, the same styling, and dark mode. |
 | G8 | Excel files are read sheet by sheet. Each row keeps its column headers (e.g. `Region: South, Q2 revenue: 12.4`), so answers can quote cell values and cite the sheet and rows. |
 | G9 | Which LLM API key is used is **configurable at deployment** (see Decisions). The demo uses the site owner's Claude API key, held on the server, so users don't need a key. |
+| G11 | **Memory (added 2026-09-27).** Conversations and the indexed documents are saved in the user's browser and restored on the next visit, so a reload doesn't lose the chat or require re-reading files. The user can clear the chat or forget the documents at any time. Nothing is stored anywhere except that browser. |
+| G12 | **Charts on request, confirmed first (added 2026-09-27).** When the user asks for a chart or graph, the bot proposes what to plot as a table (chart type, axes, measure, aggregation, source, and the exact data rows) and plots only after the user confirms. Spreadsheet charts are computed by the page from the full sheet, so every number is exact; numbers taken from PDF/Word text show which passage each came from. |
 | G10 | When the server's own key is in use, the operator can set a daily question cap so the key can't be run up by heavy use. |
 
 ## Out of scope for v1

@@ -2,6 +2,8 @@
 // questions go straight to Anthropic with the visitor's own API key.
 import * as engine from './engine.js';
 import * as onedrive from './onedrive.js';
+import * as charts from './qa-chart.js';
+import * as store from './qa-store.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...children) => {
@@ -26,20 +28,21 @@ const icon = (name, cls = '') => {
   return svg;
 };
 
-const store = (kind) => ({
+const webStore = (kind) => ({
   get(key) { try { return window[kind].getItem(key); } catch (e) { return null; } },
   set(key, value) {
     try { if (value == null) window[kind].removeItem(key); else window[kind].setItem(key, value); } catch (e) { /* blocked */ }
   },
 });
-const session = store('sessionStorage');
-const local = store('localStorage');
+const session = webStore('sessionStorage');
+const local = webStore('localStorage');
 
 const state = {
   files: new Map(), // fileId -> {fileId, name, folder, pages, chunks, parsed, status}
   failed: [], // {name, folder, error}
   index: new engine.VectorIndex(),
-  history: [],
+  history: [], // plain-text turns sent to Claude for follow-ups
+  records: [], // everything shown in the chat, saved so it survives a reload
   settings: {},
   indexedWith: null,
   busy: false,
@@ -169,6 +172,15 @@ function wire() {
     state.indexedWith = null;
     renderFiles();
     updateReindexBanner();
+    store.remove('documents');
+  });
+  $('qa-clear-chat').addEventListener('click', () => {
+    state.records = [];
+    state.history = [];
+    $('qa-transcript').replaceChildren();
+    $('qa-transcript').hidden = true;
+    $('qa-clear-chat').hidden = true;
+    store.remove('conversation');
   });
 
   $('qa-ask-form').addEventListener('submit', (ev) => {
@@ -195,8 +207,9 @@ function wire() {
   $('qa-reindex-btn').addEventListener('click', reindex);
   $('qa-limits').textContent = `.pdf, .docx, .xlsx and .zip · up to ${engine.LIMITS.maxFileMb} MB per file `
     + `(${engine.LIMITS.maxZipMb} MB per zip)`;
-  $('qa-privacy').textContent = 'Your files are read and searched inside this browser tab and are never uploaded. '
-    + 'Only the passages relevant to a question are sent to Anthropic with your key. Closing the tab clears the documents. '
+  $('qa-privacy').textContent = 'Your files are read and searched inside this browser and are never uploaded. '
+    + 'Only the passages relevant to a question are sent to Anthropic with your key. Your chat and indexed documents are '
+    + 'saved in this browser so they’re here next time; “Clear chat” and “Clear all” delete them. '
     + 'Scanned PDFs without a text layer aren’t supported yet.';
 }
 
@@ -407,6 +420,7 @@ async function reindex() {
     state.index.clear();
     state.index.add(all, vectors);
     state.indexedWith = params;
+    saveDocuments();
   } catch (e) {
     showStatus(`Re-indexing failed: ${e.message}`, { error: true });
   } finally {
@@ -528,6 +542,7 @@ async function addFiles(items) {
       }
       done += 1;
       renderFiles();
+      saveDocuments();
     }
   } catch (e) {
     showStatus(`Couldn’t add those files: ${e.message}. Check your connection (the readers load from a CDN) and try again.`, { error: true });
@@ -536,6 +551,7 @@ async function addFiles(items) {
     $('qa-progress').hidden = true;
     renderFiles();
     updateAskState();
+    store.flush();
   }
 }
 
@@ -591,6 +607,52 @@ function removeFile(f) {
   }
   renderFiles();
   updateReindexBanner();
+  saveDocuments();
+}
+
+// ------------------------------------------------------------------ memory (saved in this browser)
+
+function saveDocuments() {
+  store.saveSoon('documents', () => ({
+    version: 1,
+    files: [...state.files.values()],
+    failed: state.failed,
+    indexedWith: state.indexedWith,
+    nextId: state.nextId,
+    chunks: state.index.chunks,
+    vectors: state.index.vectors,
+  }));
+}
+
+// The chat is small, so it's written at once on every change (no batching to lose on a reload).
+function saveConversation() {
+  store.set('conversation', {
+    version: 1, records: state.records, history: state.history, messageCount: state.messageCount,
+  });
+}
+
+async function restore() {
+  const docs = await store.get('documents');
+  if (docs && docs.version === 1 && docs.files && docs.files.length) {
+    for (const f of docs.files) state.files.set(f.fileId, f);
+    state.failed = docs.failed || [];
+    state.indexedWith = docs.indexedWith || null;
+    state.nextId = docs.nextId || state.files.size + 1;
+    state.index.add(docs.chunks || [], (docs.vectors || []).map((v) => (v instanceof Float32Array ? v : Float32Array.from(v))));
+    renderFiles();
+    updateReindexBanner();
+  }
+  const convo = await store.get('conversation');
+  if (convo && convo.version === 1 && convo.records && convo.records.length) {
+    state.records = convo.records;
+    state.history = convo.history || [];
+    state.messageCount = convo.messageCount || state.records.length;
+    const transcript = $('qa-transcript');
+    transcript.hidden = false;
+    for (const rec of state.records) transcript.append(renderRecord(rec));
+    $('qa-clear-chat').hidden = false;
+  }
+  updateAskState();
 }
 
 // ------------------------------------------------------------------ asking
@@ -605,7 +667,13 @@ function updateAskState() {
     : !state.files.size ? 'Add at least one document to start asking.'
       : needsKey ? 'Enter your Claude API key above to start asking.'
         : needsReindex ? 'Re-index your documents to apply the new indexing settings.'
-          : 'Enter to send · Shift+Enter for a new line';
+          : 'Enter to send · Shift+Enter for a new line · Ask for a chart, e.g. “bar chart of revenue by region”';
+}
+
+function pushRecord(rec) {
+  state.records.push(rec);
+  $('qa-clear-chat').hidden = false;
+  saveConversation();
 }
 
 async function askQuestion(question, { retry = false } = {}) {
@@ -614,51 +682,80 @@ async function askQuestion(question, { retry = false } = {}) {
   updateAskState();
   const transcript = $('qa-transcript');
   transcript.hidden = false;
-  if (!retry) transcript.append(el('div', { class: 'qa-msg-user', text: question }));
+  if (!retry) {
+    const rec = { role: 'user', text: question };
+    transcript.append(renderRecord(rec));
+    pushRecord(rec);
+  }
   $('qa-question').value = '';
 
-  const msgId = ++state.messageCount;
+  const id = ++state.messageCount;
   const answerEl = el('div', { class: 'qa-answer qa-streaming' }, el('span', { class: 'qa-typing', text: 'Searching your documents…' }));
-  const bubble = el('div', { class: 'qa-msg-bot' }, answerEl);
-  transcript.append(bubble);
-  bubble.scrollIntoView({ block: 'nearest' });
+  const live = el('div', { class: 'qa-msg-bot' }, answerEl);
+  transcript.append(live);
+  live.scrollIntoView({ block: 'nearest' });
 
   const s = state.settings;
   const history = s.history_turns ? state.history.slice(-2 * s.history_turns) : [];
+  const files = [...state.files.values()];
   let text = '';
   try {
     const q = await engine.queryVector(question, history);
     const hits = state.index.search(q, s);
-    if (!hits.length) {
-      showNotFound(bubble, answerEl);
-      finishAsk(question, engine.NOT_FOUND);
-      return;
-    }
-    answerEl.firstChild.textContent = 'Thinking…';
-    const { system, messages } = engine.buildPrompt(question, hits, history, s);
-    const { notes } = await engine.streamAnswer({ apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s }, (delta) => {
-      if (!text) answerEl.replaceChildren();
-      text += delta;
-      answerEl.textContent = text;
-    });
-    answerEl.classList.remove('qa-streaming');
-    if (engine.isNotFound(text)) {
-      showNotFound(bubble, answerEl);
+    // Chart requests may need a spreadsheet even when no passage matches the wording.
+    const wantsChart = engine.CHART_WORDS.test(question);
+    const catalog = wantsChart ? engine.spreadsheetCatalog(files) : '';
+    let rec;
+    if (!hits.length && !catalog) {
+      rec = { role: 'bot', kind: 'notfound', id };
     } else {
-      answerEl.replaceChildren(...formatAnswer(text, msgId, hits.length));
-      for (const note of notes) bubble.append(el('p', { class: 'qa-note' }, icon('info'), note));
-      const cited = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))].filter((n) => n >= 1 && n <= hits.length);
-      const shown = (cited.length ? cited.sort((a, b) => a - b) : hits.map((_, i) => i + 1)).map((n) => ({ n, ...hits[n - 1] }));
-      bubble.append(renderSources(shown, msgId));
+      answerEl.firstChild.textContent = 'Thinking…';
+      const { system, messages } = engine.buildPrompt(question, hits, history, s, catalog);
+      const { notes, chart } = await engine.streamAnswer({
+        apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s,
+        tools: [engine.CHART_TOOL],
+      }, (delta) => {
+        if (!text) answerEl.replaceChildren();
+        text += delta;
+        answerEl.textContent = text;
+      });
+      const sources = (n) => ({ n, chunk: hits[n - 1].chunk, score: hits[n - 1].score });
+      const cited = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))]
+        .filter((n) => n >= 1 && n <= hits.length).sort((a, b) => a - b);
+      if (chart) {
+        const prepared = charts.prepareChart(chart, files, hits, engine.sourceLabel);
+        if (prepared.ok) {
+          const refs = [...new Set(prepared.chart.series.flatMap((sr) => sr.refs || []))];
+          const shown = [...new Set([...cited, ...refs])].sort((a, b) => a - b).map(sources);
+          rec = { role: 'bot', kind: 'chart', id, text, notes, sources: shown, chart: prepared.chart, status: 'proposed' };
+        } else {
+          rec = { role: 'bot', kind: 'answer', id, text, sources: cited.map(sources),
+            notes: [...notes, `I couldn’t prepare that chart: ${prepared.error}. Try rephrasing, e.g. name the sheet and columns.`] };
+        }
+      } else if (engine.isNotFound(text)) {
+        rec = { role: 'bot', kind: 'notfound', id };
+      } else {
+        rec = { role: 'bot', kind: 'answer', id, text, notes, sources: (cited.length ? cited : hits.map((_, i) => i + 1)).map(sources) };
+      }
     }
-    finishAsk(question, text);
+    live.replaceWith(renderRecord(rec));
+    pushRecord(rec);
+    const summary = rec.kind === 'chart'
+      ? `${text.trim()}\n[Proposed a ${rec.chart.type} chart “${rec.chart.title}” (${rec.chart.sourceLine}); waiting for the user to confirm.]`
+      : rec.kind === 'notfound' ? engine.NOT_FOUND : text;
+    state.history.push({ role: 'user', content: question }, { role: 'assistant', content: summary.trim() || '(chart proposal)' });
+    state.history = state.history.slice(-20);
+    saveConversation();
+    state.asking = false;
+    updateAskState();
+    $('qa-question').focus();
   } catch (e) {
-    bubble.classList.add('qa-failed');
+    live.classList.add('qa-failed');
     answerEl.classList.remove('qa-streaming');
     answerEl.replaceChildren(
       el('p', { class: 'qa-error', text: e.message || 'Something went wrong.' }),
       el('button', { type: 'button', class: 'btn-link', text: 'Try again',
-        onclick: () => { bubble.remove(); askQuestion(question, { retry: true }); } }));
+        onclick: () => { live.remove(); askQuestion(question, { retry: true }); } }));
     if (e.code === 'invalid_api_key') $('qa-api-key').focus();
     if (e.code === 'needs_workspace' || e.code === 'bad_workspace') showWorkspaceField(true);
     state.asking = false;
@@ -666,20 +763,47 @@ async function askQuestion(question, { retry = false } = {}) {
   }
 }
 
-function finishAsk(question, answer) {
-  state.history.push({ role: 'user', content: question }, { role: 'assistant', content: answer });
-  state.history = state.history.slice(-20);
-  state.asking = false;
-  updateAskState();
-  $('qa-question').focus();
+// ------------------------------------------------------------------ rendering chat records
+
+function renderRecord(rec) {
+  if (rec.role === 'user') return el('div', { class: 'qa-msg-user', text: rec.text });
+  const bubble = el('div', { class: 'qa-msg-bot' });
+  if (rec.kind === 'notfound') {
+    bubble.classList.add('qa-notfound');
+    bubble.append(el('div', { class: 'qa-answer' }, el('p', {},
+      el('strong', { text: engine.NOT_FOUND }), el('br'),
+      el('span', { class: 'qa-help', text: 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
+    return bubble;
+  }
+  const count = rec.sources ? Math.max(0, ...rec.sources.map((x) => x.n)) : 0;
+  if (rec.text && rec.text.trim()) bubble.append(el('div', { class: 'qa-answer' }, formatAnswer(rec.text, rec.id, count)));
+  for (const note of rec.notes || []) bubble.append(el('p', { class: 'qa-note' }, icon('info'), note));
+  if (rec.kind === 'chart') bubble.append(renderChartBlock(rec));
+  if (rec.sources && rec.sources.length) bubble.append(renderSources(rec.sources, rec.id));
+  return bubble;
 }
 
-function showNotFound(bubble, answerEl) {
-  bubble.classList.add('qa-notfound');
-  answerEl.classList.remove('qa-streaming');
-  answerEl.replaceChildren(el('p', {},
-    el('strong', { text: engine.NOT_FOUND }), el('br'),
-    el('span', { class: 'qa-help', text: 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' })));
+function renderChartBlock(rec) {
+  const box = el('div', { class: 'qa-chart-block' });
+  const { settings, data } = charts.renderTables(rec.chart);
+  const replace = () => { box.replaceWith(renderChartBlock(rec)); saveConversation(); };
+  if (rec.status === 'proposed') {
+    box.append(
+      el('p', { class: 'qa-chart-ask' }, el('strong', { text: 'Here’s what I’d plot. ' }),
+        'Check the settings and data, then confirm. To change anything, reply in the chat.'),
+      settings,
+      el('p', { class: 'qa-label qa-table-label', text: `Data to plot (${rec.chart.categories.length} row${rec.chart.categories.length === 1 ? '' : 's'})` }),
+      data,
+      el('div', { class: 'qa-row qa-row-center qa-chart-confirm' },
+        el('button', { type: 'button', class: 'btn btn-primary', onclick: () => { rec.status = 'plotted'; replace(); } }, 'Plot chart'),
+        el('button', { type: 'button', class: 'btn qa-btn-secondary', onclick: () => { rec.status = 'cancelled'; replace(); } }, 'Cancel')));
+  } else if (rec.status === 'plotted') {
+    const details = el('details', { class: 'qa-chart-data' }, el('summary', { text: 'Show data table' }), settings, data);
+    box.append(charts.renderChart(rec.chart), details);
+  } else {
+    box.append(el('p', { class: 'qa-help', text: `Chart “${rec.chart.title}” cancelled.` }));
+  }
+  return box;
 }
 
 /** Safe minimal formatting: paragraphs, bullets, **bold**, and [n] citation chips. */
@@ -749,3 +873,4 @@ renderKey();
 renderSettings();
 renderFiles();
 updateAskState();
+restore();
