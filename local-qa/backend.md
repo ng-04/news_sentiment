@@ -1,5 +1,9 @@
 # Local Q&A — Backend
 
+> **Not used by the v1 site**, which runs entirely in the browser (see goal.md and
+> `local-qa/engine.js`). This service is kept, with its tests, for a later version that shares
+> one site key behind a passcode. Its pipeline is the reference the browser engine mirrors.
+
 A new, separately hosted service. It is needed because the site itself is static on
 GitHub Pages and the site owner's LLM API key must stay server-side.
 

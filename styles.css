@@ -922,3 +922,5 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
   .qa-hide-sm { display: none; }
   .qa-reindex { flex-wrap: wrap; }
 }
+.qa-key-actions { margin-top: 16px; }
+.qa-key-note { margin-top: 12px; }

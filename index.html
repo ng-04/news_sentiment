@@ -181,78 +181,39 @@
         <p class="eyebrow">Live Tool</p>
         <h2>Local Q&amp;A</h2>
         <p class="section-lead qa-lead">
-          Ask questions about your own PDF, Word and Excel files. Upload files, a whole folder, or a
+          Ask questions about your own PDF, Word and Excel files. Add files, a whole folder, or a
           OneDrive folder downloaded as a .zip, and every answer cites the folder, file and page or sheet
-          it came from.
+          it came from. Everything runs in your browser with your own Claude API key.
         </p>
       </div>
 
       <p class="qa-banner" id="qa-status" role="status" hidden></p>
 
-      <form class="qa-card qa-lock" id="qa-lock" hidden>
-        <span class="qa-icon-tile"><svg class="qa-i" aria-hidden="true"><use href="#qa-i-lock"/></svg></span>
-        <div>
-          <h3>Enter the passcode</h3>
-          <p class="qa-help">This tool is private. Ask the site owner for the passcode.</p>
-        </div>
-        <label class="qa-sr-only" for="qa-passcode">Passcode</label>
-        <div class="qa-row">
-          <input id="qa-passcode" class="qa-field" type="password" placeholder="Passcode" autocomplete="current-password" required aria-describedby="qa-lock-error">
-          <button type="submit" class="btn btn-primary" id="qa-unlock">Unlock</button>
-        </div>
-        <p class="qa-error" id="qa-lock-error" hidden></p>
-      </form>
-
-      <div class="qa-stack" id="qa-app" hidden>
-        <div class="qa-card qa-model-bar" id="qa-model-bar">
-          <span class="qa-icon-tile qa-icon-tile-sm"><svg class="qa-i" aria-hidden="true"><use href="#qa-i-spark"/></svg></span>
-          <div class="qa-grow">
-            <span class="qa-title" id="qa-model-title">Claude, on this site’s API key</span>
-            <span class="qa-help" id="qa-model-sub"></span>
+      <div class="qa-stack" id="qa-app">
+        <div class="qa-card" id="qa-key-card">
+          <div class="qa-card-head">
+            <h3>Your Claude API key</h3>
+            <span class="qa-badge" id="qa-key-badge">Not set</span>
           </div>
-          <div class="qa-model-select" id="qa-server-model-wrap">
-            <label class="qa-label" for="qa-server-model">Model</label>
-            <select id="qa-server-model" class="qa-field"></select>
-          </div>
-          <button type="button" class="btn-link" id="qa-own-key-toggle" hidden>Use my own key</button>
-        </div>
-
-        <div class="qa-card" id="qa-key-panel" hidden>
-          <div class="qa-card-head"><h3>Connect a model</h3><span class="qa-badge">Your key, your bill</span></div>
-          <div class="qa-col qa-gap-lg">
-            <div class="qa-grid-2">
-              <div class="qa-col">
-                <label class="qa-label" for="qa-provider">Provider</label>
-                <select id="qa-provider" class="qa-field">
-                  <option value="anthropic">Anthropic</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="gemini">Google Gemini</option>
-                  <option value="openai_compatible">OpenAI-compatible</option>
-                </select>
-              </div>
-              <div class="qa-col">
-                <label class="qa-label" for="qa-model">Model</label>
-                <input id="qa-model" class="qa-field" type="text" list="qa-model-suggestions" autocomplete="off" spellcheck="false">
-                <datalist id="qa-model-suggestions"></datalist>
-              </div>
-            </div>
-            <div class="qa-col" id="qa-base-url-wrap" hidden>
-              <label class="qa-label" for="qa-base-url">Base URL</label>
-              <input id="qa-base-url" class="qa-field" type="url" placeholder="https://api.groq.com/openai/v1" spellcheck="false">
-              <p class="qa-help">Any service that speaks the OpenAI Chat Completions API: Groq, Mistral, OpenRouter, DeepSeek, Together…</p>
-            </div>
+          <div class="qa-grid-2">
             <div class="qa-col">
               <label class="qa-label" for="qa-api-key">API key</label>
-              <input id="qa-api-key" class="qa-field" type="password" autocomplete="off" spellcheck="false">
+              <input id="qa-api-key" class="qa-field" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+              <p class="qa-help">Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
             </div>
-            <label class="qa-check"><input type="checkbox" id="qa-remember-key"> Remember this key on this device</label>
-            <div class="qa-row qa-row-center">
-              <button type="button" class="btn qa-btn-secondary" id="qa-test-key">Test key</button>
-              <button type="button" class="btn-link qa-muted" id="qa-forget-key">Forget key</button>
-              <span class="qa-help" id="qa-key-status" role="status"></span>
+            <div class="qa-col">
+              <label class="qa-label" for="qa-model">Model</label>
+              <select id="qa-model" class="qa-field"></select>
+              <p class="qa-help">Opus is the most capable; Haiku is fastest and cheapest.</p>
             </div>
-            <p class="qa-help">For each question, your key goes through our server to the provider you picked. It’s never stored there, and usage is billed to your own account.</p>
           </div>
+          <div class="qa-row qa-row-center qa-key-actions">
+            <label class="qa-check"><input type="checkbox" id="qa-remember-key"> Remember on this device</label>
+            <button type="button" class="btn qa-btn-secondary" id="qa-test-key">Test key</button>
+            <button type="button" class="btn-link qa-muted" id="qa-forget-key">Forget key</button>
+            <span class="qa-help" id="qa-key-status" role="status"></span>
+          </div>
+          <p class="qa-help qa-key-note">Your key stays in this browser tab (or on this device if you tick “Remember”). This page sends it only to Anthropic, and usage is billed to your Anthropic account.</p>
         </div>
 
         <div class="qa-card">
@@ -271,7 +232,7 @@
             <input id="qa-file-input" class="qa-sr-only" type="file" multiple accept=".pdf,.docx,.xlsx,.xlsm,.zip">
             <input id="qa-folder-input" class="qa-sr-only" type="file" webkitdirectory multiple>
           </div>
-          <p class="qa-help qa-tip">From OneDrive: open the folder at onedrive.com, choose <strong>Download</strong> to get a .zip, and drop it here. Subfolders are kept.</p>
+          <p class="qa-help qa-tip">From OneDrive: open the folder at onedrive.com, choose <strong>Download</strong> to get a .zip, and drop it here. Subfolders are kept. Files are read in your browser and never uploaded anywhere.</p>
 
           <div class="qa-col qa-progress-wrap" id="qa-progress" hidden>
             <div class="qa-row qa-help qa-between"><span id="qa-progress-label">Indexing</span><span id="qa-progress-count"></span></div>

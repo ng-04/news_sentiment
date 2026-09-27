@@ -3,6 +3,16 @@
 Static HTML/CSS/JS added to the existing site, the same way the sentiment tool is built:
 no framework and no build step, with ES modules loaded from `index.html`.
 
+> **v1 is browser-only** (see goal.md). `local-qa/engine.js` does the work that backend.md
+> describes, in the browser: pdf.js, mammoth and SheetJS read files, JSZip unpacks zips,
+> Transformers.js runs `bge-small-en-v1.5` for embeddings, and the official `@anthropic-ai/sdk`
+> (browser mode) streams answers. `local-qa/qa.js` is the UI. Libraries load from jsDelivr and
+> the SheetJS CDN, pinned to exact versions. Where this spec mentions the passcode (F0a), the
+> site key, OneDrive sign-in (F1–F3) or backend calls, v1 doesn't have them: the page shows a
+> **Claude API key** field (kept in `sessionStorage`, or `localStorage` with "Remember") and a
+> model picker (`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`). "Test key" makes a
+> 5-token call to `claude-haiku-4-5`.
+
 ## Placement
 
 - Replace the "Tool Two" placeholder tile in `#tools` with a live **Local Q&A** tile
