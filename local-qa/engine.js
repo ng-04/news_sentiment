@@ -449,6 +449,20 @@ export function sourceLabel(c) {
 
 const attr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+/** What a chart can be built from: every indexed document (for document statistics) and every
+ *  spreadsheet sheet with its columns, so Claude points a chart at real things. */
+export function chartCatalog(files) {
+  const docs = files.slice(0, 60).map((f) => {
+    const path = f.folder ? `${f.folder}/${f.name}` : f.name;
+    const kind = f.parsed.tables && f.parsed.tables.length ? `spreadsheet, ${f.parsed.tables.length} sheet(s)`
+      : f.pages ? `PDF, ${f.pages} pages` : `Word document, ${f.parsed.units.length} section(s)`;
+    return `- file "${f.name}" (folder "${f.folder || ''}", path "${path}"): ${kind}`;
+  });
+  const sheets = spreadsheetCatalog(files);
+  return `Documents (source "document_stats" can count words or characters per page, section or file):\n${docs.join('\n')}`
+    + (sheets ? `\n\nSpreadsheets (source "spreadsheet"):\n${sheets}` : '');
+}
+
 /** A short list of the indexed spreadsheets, so Claude can point a chart at real columns. */
 export function spreadsheetCatalog(files) {
   const lines = [];
@@ -470,14 +484,27 @@ export const CHART_TOOL = {
   description: 'Propose a chart when the user asks for a chart, graph, plot or visual comparison. The page shows the plan '
     + 'and its data as a table and asks the user to confirm before drawing. Prefer source "spreadsheet" whenever the data '
     + 'is in one of the listed spreadsheets: the page then computes every value from all rows of that sheet. Use source '
-    + '"excerpts" only for numbers that appear verbatim in the numbered excerpts, and give each value\'s excerpt number.',
+    + '"document_stats" for facts about the documents themselves (words or characters per page, per section, or per '
+    + 'file); the page counts them. Use source "excerpts" only for numbers that appear verbatim in the numbered excerpts, '
+    + 'and give each value\'s excerpt number.',
   eager_input_streaming: true,
   input_schema: {
     type: 'object',
     properties: {
       title: { type: 'string', description: 'Short chart title' },
       chart_type: { type: 'string', enum: ['bar', 'line', 'pie'], description: 'bar for comparing categories; line for ordered categories such as months or years; pie only for one series of at most 6 parts of a whole' },
-      source: { type: 'string', enum: ['spreadsheet', 'excerpts'] },
+      source: { type: 'string', enum: ['spreadsheet', 'document_stats', 'excerpts'] },
+      document_stats: {
+        type: 'object',
+        description: 'Required when source is "document_stats". Counts are computed by the page from the extracted text.',
+        properties: {
+          measure: { type: 'string', enum: ['words', 'characters'] },
+          group_by: { type: 'string', enum: ['page', 'section', 'file'], description: 'page: one bar per PDF page; section: one per Word heading section; file: one per document' },
+          file: { type: 'string', description: 'File name as listed; required for page or section, omit for file to compare all documents' },
+          folder: { type: 'string' },
+        },
+        required: ['measure', 'group_by'],
+      },
       spreadsheet: {
         type: 'object',
         description: 'Required when source is "spreadsheet".',
@@ -542,7 +569,7 @@ export function buildPrompt(question, hits, history, settings, catalog = '') {
     + 'If the user asks for a chart, graph or plot, write one short sentence saying what you propose, then call the propose_chart tool; '
     + 'never invent numbers for a chart, and don\'t draw charts in text. The user will see your proposal as a table and confirm it.';
   const blocks = hits.map((h, i) => `<excerpt n="${i + 1}" source="${attr(sourceLabel(h.chunk))}">\n${h.chunk.text}\n</excerpt>`);
-  const sheets = catalog ? `<spreadsheets>\n${catalog}\n</spreadsheets>\n\n` : '';
+  const sheets = catalog ? `<chart_sources>\n${catalog}\n</chart_sources>\n\n` : '';
   const user = `${sheets}<excerpts>\n${blocks.join('\n')}\n</excerpts>\n\nQuestion: ${question}`;
   return { system, messages: [...history, { role: 'user', content: user }] };
 }

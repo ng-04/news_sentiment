@@ -4,6 +4,7 @@
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_CATEGORIES = 50;
+const MAX_STAT_CATEGORIES = 500; // pages of a long PDF; a line chart reads best past ~60
 const MAX_SERIES = 6;
 const W = 640;
 const H = 300;
@@ -59,10 +60,16 @@ export function prepareChart(spec, files, hits, labelFor) {
       xLabel: spec.x_label ? String(spec.x_label).slice(0, 60) : '',
       yLabel: spec.y_label ? String(spec.y_label).slice(0, 60) : '',
     };
-    const data = spec.source === 'excerpts' ? fromExcerpts(spec.excerpts, hits, labelFor) : fromSheet(spec.spreadsheet, files);
+    const data = spec.source === 'excerpts' ? fromExcerpts(spec.excerpts, hits, labelFor)
+      : spec.source === 'document_stats' ? fromStats(spec.document_stats, files)
+        : fromSheet(spec.spreadsheet, files);
     const chart = { ...base, ...data };
     if (!chart.categories.length) throw new Error('there is nothing to plot after the filters');
-    if (chart.categories.length > MAX_CATEGORIES) {
+    const cap = spec.source === 'document_stats' ? MAX_STAT_CATEGORIES : MAX_CATEGORIES;
+    if (type === 'bar' && chart.categories.length > 60) {
+      throw new Error(`${chart.categories.length} bars would be too thin to read; ask for a line chart instead`);
+    }
+    if (chart.categories.length > cap) {
       throw new Error(`that would plot ${chart.categories.length} categories (at most ${MAX_CATEGORIES}); ask for a filter or a grouping`);
     }
     if (chart.series.length > MAX_SERIES) throw new Error(`at most ${MAX_SERIES} series can be plotted at once`);
@@ -166,6 +173,60 @@ function fromSheet(sp, files) {
   };
 }
 
+const countWords = (t) => (t.match(/\S+/g) || []).length;
+
+function fromStats(st, files) {
+  if (!st) throw new Error('the proposal didn’t say what to count');
+  const measure = st.measure === 'characters' ? 'characters' : 'words';
+  const count = (t) => (measure === 'words' ? countWords(t) : t.replace(/\s+/g, ' ').trim().length);
+  const unitName = measure === 'words' ? 'Words' : 'Characters';
+  const pick = () => {
+    const candidates = st.file ? files.filter((f) => same(f.name, st.file)) : files;
+    const f = candidates.find((x) => st.folder == null || same(x.folder, st.folder)) || candidates[0];
+    if (!f) throw new Error(st.file ? `“${st.file}” isn’t among your documents` : 'there are no documents');
+    if (!st.file && files.length > 1) throw new Error('name the file to count page by page (you have several documents)');
+    return f;
+  };
+  const pathOf = (f) => (f.folder ? `${f.folder}/${f.name}` : f.name);
+  let categories;
+  let values;
+  let sourceLine;
+  let groupLabel;
+  if (st.group_by === 'file') {
+    const list = st.file ? [pick()] : files;
+    categories = list.map((f) => f.name);
+    values = list.map((f) => f.parsed.units.reduce((n, u) => n + count(u.text), 0));
+    sourceLine = `Counted from the extracted text of ${list.length === 1 ? pathOf(list[0]) : `${list.length} documents`}`;
+    groupLabel = 'File';
+  } else if (st.group_by === 'page') {
+    const f = pick();
+    if (!f.pages) throw new Error(`“${f.name}” has no pages (it isn’t a PDF); count by section or by file instead`);
+    const byPage = new Map(f.parsed.units.map((u) => [u.page, count(u.text)]));
+    categories = Array.from({ length: f.pages }, (_, i) => `Page ${i + 1}`);
+    values = categories.map((_, i) => byPage.get(i + 1) || 0); // pages without text count as 0
+    sourceLine = `Counted from the text layer of ${pathOf(f)} · ${f.pages} pages`;
+    groupLabel = 'Page';
+  } else {
+    const f = pick();
+    if (f.pages || (f.parsed.tables && f.parsed.tables.length)) throw new Error(`“${f.name}” isn’t a Word document; count by page or by file instead`);
+    categories = f.parsed.units.map((u, i) => u.section || `Section ${i + 1}`);
+    values = f.parsed.units.map((u) => count(u.text));
+    sourceLine = `Counted from the text of ${pathOf(f)} · ${f.parsed.units.length} sections`;
+    groupLabel = 'Section';
+  }
+  return {
+    categories, series: [{ name: unitName, values }], quoted: false,
+    settings: [
+      ['Chart type', null],
+      ['X axis (categories)', groupLabel],
+      ['Y values', `${unitName} (counted by this page)`],
+      ['How counted', measure === 'words' ? 'Words = runs of text separated by spaces, from the extracted text; scanned pages without text count as 0'
+        : 'Characters, with runs of spaces collapsed, from the extracted text'],
+    ],
+    sourceLine,
+  };
+}
+
 function fromExcerpts(ex, hits, labelFor) {
   if (!ex || !Array.isArray(ex.categories) || !Array.isArray(ex.series)) throw new Error('the proposal had no figures');
   const categories = ex.categories.map((c) => String(c).slice(0, 80));
@@ -203,11 +264,13 @@ export function renderTables(chart, { limit = 50 } = {}) {
     h('tr', {}, h('th', { scope: 'row', text: 'Source' }), h('td', { text: chart.sourceLine }))));
   const head = h('tr', {}, h('th', { scope: 'col', text: chart.xLabel || 'Category' }),
     chart.series.map((sr) => h('th', { scope: 'col', class: 'qa-num', text: sr.name })));
+  const more = chart.categories.length > limit
+    ? h('p', { class: 'qa-help', text: `Showing the first ${limit} of ${chart.categories.length} rows; the chart and CSV use all of them.` }) : null;
   const body = chart.categories.slice(0, limit).map((c, i) => h('tr', {}, h('th', { scope: 'row', text: c }),
     chart.series.map((sr) => h('td', { class: 'qa-num' }, formatValue(sr.values[i]),
       sr.refs ? h('span', { class: 'qa-ref', text: ` [${sr.refs[i]}]` }) : null))));
   const data = h('div', { class: 'qa-table-wrap' }, h('table', { class: 'qa-table' },
-    h('caption', { class: 'qa-sr-only', text: `Data for ${chart.title}` }), h('thead', {}, head), h('tbody', {}, body)));
+    h('caption', { class: 'qa-sr-only', text: `Data for ${chart.title}` }), h('thead', {}, head), h('tbody', {}, body)), more);
   return { settings, data };
 }
 
