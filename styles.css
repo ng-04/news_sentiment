@@ -1016,3 +1016,6 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
   .qa-sample-files { grid-template-columns: minmax(0, 1fr); }
   .qa-q-group > span { width: 100%; }
 }
+.qa-meta summary { cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--gray-600); }
+.qa-meta[open] { display: flex; flex-direction: column; gap: 8px; }
+.qa-raw { margin: 0; max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 0.78rem; padding: 8px 10px; border-radius: 6px; background: var(--bg-alt); border: 1px solid var(--gray-100); color: var(--ink); }
