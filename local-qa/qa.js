@@ -49,7 +49,15 @@ const state = {
   asking: false,
   messageCount: 0,
   nextId: 1,
+  mode: 'mine', // 'mine' or 'sample': each has its own documents, chat and saved copy
 };
+
+// Storage keys per workspace, so the sample demo never mixes with the user's own documents.
+const key = (name) => (state.mode === 'sample' ? `sample:${name}` : name);
+const WS_FIELDS = ['files', 'failed', 'index', 'records', 'history', 'indexedWith', 'nextId', 'messageCount'];
+const blankWorkspace = () => ({
+  files: new Map(), failed: [], index: new engine.VectorIndex(), records: [], history: [], indexedWith: null, nextId: 1, messageCount: 0,
+});
 
 // ------------------------------------------------------------------ status banner
 
@@ -172,7 +180,7 @@ function wire() {
     state.indexedWith = null;
     renderFiles();
     updateReindexBanner();
-    store.remove('documents');
+    store.remove(key('documents'));
   });
   $('qa-clear-chat').addEventListener('click', () => {
     state.records = [];
@@ -180,7 +188,7 @@ function wire() {
     $('qa-transcript').replaceChildren();
     $('qa-transcript').hidden = true;
     $('qa-clear-chat').hidden = true;
-    store.remove('conversation');
+    store.remove(key('conversation'));
   });
 
   $('qa-ask-form').addEventListener('submit', (ev) => {
@@ -297,12 +305,13 @@ const LABELS = {
   answer_style: 'Answer style', history_turns: 'Follow-up memory', strict_grounding: 'Only answer from my documents',
   top_k: 'Passages per answer (top-k)', min_similarity: 'Minimum similarity', diversify: 'Avoid near-duplicate passages',
   mmr_lambda: 'Relevance vs diversity', chunk_strategy: 'Chunking method', chunk_size: 'Chunk size',
-  chunk_overlap: 'Chunk overlap',
+  chunk_overlap: 'Chunk overlap', context_mode: 'Answer from',
 };
 const SUFFIX = { max_answer_tokens: ' tokens', history_turns: ' turns', chunk_size: ' characters', chunk_overlap: ' characters' };
 const ENUM_LABELS = {
   concise: 'Concise', detailed: 'Detailed', bullet_points: 'Bullet points', low: 'Low', medium: 'Medium', high: 'High',
   recursive: 'Smart (paragraphs, then sentences)', fixed: 'Fixed size', by_paragraph: 'By paragraph', by_page: 'By page',
+  auto: 'Auto (whole documents when they’re small)', passages: 'Best-matching passages', full: 'Whole documents',
 };
 
 function defaultSettings() {
@@ -613,7 +622,7 @@ function removeFile(f) {
 // ------------------------------------------------------------------ memory (saved in this browser)
 
 function saveDocuments() {
-  store.saveSoon('documents', () => ({
+  store.saveSoon(key('documents'), () => ({
     version: 1,
     files: [...state.files.values()],
     failed: state.failed,
@@ -626,13 +635,20 @@ function saveDocuments() {
 
 // The chat is small, so it's written at once on every change (no batching to lose on a reload).
 function saveConversation() {
-  store.set('conversation', {
+  store.set(key('conversation'), {
     version: 1, records: state.records, history: state.history, messageCount: state.messageCount,
   });
 }
 
+function renderTranscript() {
+  const transcript = $('qa-transcript');
+  transcript.replaceChildren(...state.records.map(renderRecord));
+  transcript.hidden = !state.records.length;
+  $('qa-clear-chat').hidden = !state.records.length;
+}
+
 async function restore() {
-  const docs = await store.get('documents');
+  const docs = await store.get(key('documents'));
   if (docs && docs.version === 1 && docs.files && docs.files.length) {
     for (const f of docs.files) state.files.set(f.fileId, f);
     state.failed = docs.failed || [];
@@ -642,17 +658,47 @@ async function restore() {
     renderFiles();
     updateReindexBanner();
   }
-  const convo = await store.get('conversation');
+  const convo = await store.get(key('conversation'));
   if (convo && convo.version === 1 && convo.records && convo.records.length) {
     state.records = convo.records;
     state.history = convo.history || [];
     state.messageCount = convo.messageCount || state.records.length;
-    const transcript = $('qa-transcript');
-    transcript.hidden = false;
-    for (const rec of state.records) transcript.append(renderRecord(rec));
-    $('qa-clear-chat').hidden = false;
   }
+  renderFiles();
+  renderTranscript();
+  updateReindexBanner();
   updateAskState();
+}
+
+/** Swaps between the sample workspace and the user's own documents; each keeps its own state. */
+const stashed = {};
+async function switchMode(mode) {
+  if (mode === state.mode || state.busy || state.asking) return;
+  store.flush(); // pending saves belong to the workspace being left
+  stashed[state.mode] = Object.fromEntries(WS_FIELDS.map((k) => [k, state[k]]));
+  const next = stashed[mode];
+  Object.assign(state, next || blankWorkspace());
+  state.mode = mode;
+  local.set('localqa.mode', mode);
+  paintMode();
+  if (next) {
+    renderFiles();
+    renderTranscript();
+    updateReindexBanner();
+    updateAskState();
+  } else {
+    await restore();
+  }
+}
+
+function paintMode() {
+  const sample = state.mode === 'sample';
+  document.querySelectorAll('#qa-sample [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)));
+  $('qa-sample-body').hidden = !sample;
+  $('qa-mine-note').hidden = sample;
+  $('qa-add-controls').hidden = sample;
+  $('qa-empty').textContent = sample ? 'Sample data isn’t loaded yet. Click “Load sample data” above, or just pick a question.' : 'No documents yet.';
+  $('qa-transcript').classList.toggle('qa-show-ref', sample && $('qa-show-reference').checked);
 }
 
 // ------------------------------------------------------------------ asking
@@ -664,8 +710,8 @@ function updateAskState() {
   $('qa-question').disabled = !ready;
   $('qa-ask').disabled = !ready || state.asking;
   $('qa-ask-hint').textContent = state.busy ? 'Reading your documents…'
-    : !state.files.size ? 'Add at least one document to start asking.'
-      : needsKey ? 'Enter your Claude API key above to start asking.'
+    : !state.files.size ? (state.mode === 'sample' ? 'Pick a suggested question above, or load the sample data to ask your own.' : 'Add at least one document to start asking.')
+      : needsKey ? (state.mode === 'sample' ? 'Pick a suggested question above to see a recorded answer, or enter your Claude API key to ask anything.' : 'Enter your Claude API key above to start asking.')
         : needsReindex ? 'Re-index your documents to apply the new indexing settings.'
           : 'Enter to send · Shift+Enter for a new line · Ask for a chart, e.g. “bar chart of revenue by region”';
 }
@@ -674,6 +720,65 @@ function pushRecord(rec) {
   state.records.push(rec);
   $('qa-clear-chat').hidden = false;
   saveConversation();
+}
+
+/** Answers one question against the current documents and returns a chat record, without
+ *  touching the page (used by the chat and by the sample-answer recorder). */
+async function answerQuestion(question, history, { onText = () => {}, onStage = () => {} } = {}) {
+  const s = state.settings;
+  const files = [...state.files.values()];
+  const id = ++state.messageCount;
+  const totalChars = state.index.chunks.reduce((n, c) => n + c.text.length, 0);
+  // Whole documents when asked for, or automatically when they're small enough to send in full.
+  const full = s.context_mode === 'full' || (s.context_mode === 'auto' && totalChars <= engine.FULL_CONTEXT_CHARS);
+  const hits = full ? state.index.chunks.map((chunk) => ({ chunk, score: 1 }))
+    : state.index.search(await engine.queryVector(question, history), s);
+  // Charts and calculations can come from spreadsheets or the documents themselves even when no
+  // passage matches the wording, so those questions always reach Claude.
+  const wantsChart = engine.CHART_WORDS.test(question);
+  const hasSheets = files.some((f) => (f.parsed.tables || []).length);
+  const catalog = wantsChart || hasSheets ? engine.chartCatalog(files) : '';
+  if (!hits.length && !wantsChart && !hasSheets) return { rec: { role: 'bot', kind: 'notfound', id }, text: '' };
+
+  onStage(full ? 'Reading all your documents…' : 'Thinking…');
+  let text = '';
+  const { system, messages } = engine.buildPrompt(question, hits, history, s, catalog, full);
+  const { notes, chart, calcs } = await engine.streamAnswer({
+    apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s,
+    tools: [engine.CHART_TOOL, engine.CALC_TOOL],
+    onCalculate: (input) => charts.computeTable(input, files),
+  }, (delta) => { text += delta; onText(text); });
+  if (full) notes.unshift(`Answered from all ${files.length} document${files.length === 1 ? '' : 's'} (whole-documents mode).`);
+  const tables = calcs.filter((c) => c.ok).map((c) => c.table);
+  const sources = (n) => ({ n, chunk: hits[n - 1].chunk, score: hits[n - 1].score });
+  const cited = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))]
+    .filter((n) => n >= 1 && n <= hits.length).sort((a, b) => a - b);
+  let rec;
+  if (chart) {
+    const prepared = charts.prepareChart(chart, files, hits, engine.sourceLabel);
+    if (prepared.ok) {
+      const refs = [...new Set(prepared.chart.series.flatMap((sr) => sr.refs || []))];
+      const shown = [...new Set([...cited, ...refs])].sort((a, b) => a - b).map(sources);
+      rec = { role: 'bot', kind: 'chart', id, text, notes, sources: shown, chart: prepared.chart, status: 'proposed', tables };
+    } else {
+      rec = { role: 'bot', kind: 'answer', id, text, sources: cited.map(sources), tables,
+        notes: [...notes, `I couldn’t prepare that chart: ${prepared.error}. Try rephrasing, e.g. name the sheet and columns.`] };
+    }
+  } else if (engine.isNotFound(text) && !tables.length) {
+    rec = { role: 'bot', kind: 'notfound', id };
+  } else {
+    // In whole-documents mode only the passages actually cited are worth listing.
+    const shown = cited.length || full ? cited : hits.map((_, i) => i + 1);
+    rec = { role: 'bot', kind: 'answer', id, text, notes, sources: shown.map(sources), tables };
+  }
+  return { rec, text };
+}
+
+function historyEntry(rec, text) {
+  if (rec.kind === 'chart') {
+    return `${text.trim()}\n[Proposed a ${rec.chart.type} chart “${rec.chart.title}” (${rec.chart.sourceLine}); waiting for the user to confirm.]`;
+  }
+  return rec.kind === 'notfound' ? engine.NOT_FOUND : text.trim() || '(answer)';
 }
 
 async function askQuestion(question, { retry = false } = {}) {
@@ -689,7 +794,6 @@ async function askQuestion(question, { retry = false } = {}) {
   }
   $('qa-question').value = '';
 
-  const id = ++state.messageCount;
   const answerEl = el('div', { class: 'qa-answer qa-streaming' }, el('span', { class: 'qa-typing', text: 'Searching your documents…' }));
   const live = el('div', { class: 'qa-msg-bot' }, answerEl);
   transcript.append(live);
@@ -697,55 +801,16 @@ async function askQuestion(question, { retry = false } = {}) {
 
   const s = state.settings;
   const history = s.history_turns ? state.history.slice(-2 * s.history_turns) : [];
-  const files = [...state.files.values()];
-  let text = '';
   try {
-    const q = await engine.queryVector(question, history);
-    const hits = state.index.search(q, s);
-    // Chart requests may need a spreadsheet even when no passage matches the wording.
-    // Chart requests always go to Claude: a chart can come from a spreadsheet or from the documents
-    // themselves (e.g. words per page) even when no passage matches the wording.
-    const wantsChart = engine.CHART_WORDS.test(question);
-    const catalog = wantsChart ? engine.chartCatalog(files) : '';
-    let rec;
-    if (!hits.length && !wantsChart) {
-      rec = { role: 'bot', kind: 'notfound', id };
-    } else {
-      answerEl.firstChild.textContent = 'Thinking…';
-      const { system, messages } = engine.buildPrompt(question, hits, history, s, catalog);
-      const { notes, chart } = await engine.streamAnswer({
-        apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s,
-        tools: [engine.CHART_TOOL],
-      }, (delta) => {
-        if (!text) answerEl.replaceChildren();
-        text += delta;
-        answerEl.textContent = text;
-      });
-      const sources = (n) => ({ n, chunk: hits[n - 1].chunk, score: hits[n - 1].score });
-      const cited = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))]
-        .filter((n) => n >= 1 && n <= hits.length).sort((a, b) => a - b);
-      if (chart) {
-        const prepared = charts.prepareChart(chart, files, hits, engine.sourceLabel);
-        if (prepared.ok) {
-          const refs = [...new Set(prepared.chart.series.flatMap((sr) => sr.refs || []))];
-          const shown = [...new Set([...cited, ...refs])].sort((a, b) => a - b).map(sources);
-          rec = { role: 'bot', kind: 'chart', id, text, notes, sources: shown, chart: prepared.chart, status: 'proposed' };
-        } else {
-          rec = { role: 'bot', kind: 'answer', id, text, sources: cited.map(sources),
-            notes: [...notes, `I couldn’t prepare that chart: ${prepared.error}. Try rephrasing, e.g. name the sheet and columns.`] };
-        }
-      } else if (engine.isNotFound(text)) {
-        rec = { role: 'bot', kind: 'notfound', id };
-      } else {
-        rec = { role: 'bot', kind: 'answer', id, text, notes, sources: (cited.length ? cited : hits.map((_, i) => i + 1)).map(sources) };
-      }
-    }
+    const { rec, text } = await answerQuestion(question, history, {
+      onStage: (label) => { if (answerEl.firstChild && answerEl.firstChild.className === 'qa-typing') answerEl.firstChild.textContent = label; },
+      onText: (soFar) => { answerEl.textContent = soFar; },
+    });
+    const sample = currentSampleQuestion(question);
+    if (sample) rec.sampleId = sample.id;
     live.replaceWith(renderRecord(rec));
     pushRecord(rec);
-    const summary = rec.kind === 'chart'
-      ? `${text.trim()}\n[Proposed a ${rec.chart.type} chart “${rec.chart.title}” (${rec.chart.sourceLine}); waiting for the user to confirm.]`
-      : rec.kind === 'notfound' ? engine.NOT_FOUND : text;
-    state.history.push({ role: 'user', content: question }, { role: 'assistant', content: summary.trim() || '(chart proposal)' });
+    state.history.push({ role: 'user', content: question }, { role: 'assistant', content: historyEntry(rec, text) });
     state.history = state.history.slice(-20);
     saveConversation();
     state.asking = false;
@@ -775,14 +840,29 @@ function renderRecord(rec) {
     bubble.append(el('div', { class: 'qa-answer' }, el('p', {},
       el('strong', { text: engine.NOT_FOUND }), el('br'),
       el('span', { class: 'qa-help', text: 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
+    if (rec.recorded) bubble.prepend(el('p', { class: 'qa-recorded', text: `Recorded answer · ${rec.recorded.model} · ${rec.recorded.date}` }));
+    appendReference(bubble, rec);
     return bubble;
   }
   const count = rec.sources ? Math.max(0, ...rec.sources.map((x) => x.n)) : 0;
   if (rec.text && rec.text.trim()) bubble.append(el('div', { class: 'qa-answer' }, formatAnswer(rec.text, rec.id, count)));
   for (const note of rec.notes || []) bubble.append(el('p', { class: 'qa-note' }, icon('info'), note));
   if (rec.kind === 'chart') bubble.append(renderChartBlock(rec));
+  if (rec.tables && rec.tables.length) bubble.append(renderCalcTables(rec.tables));
   if (rec.sources && rec.sources.length) bubble.append(renderSources(rec.sources, rec.id));
+  if (rec.recorded) bubble.prepend(el('p', { class: 'qa-recorded', text: `Recorded answer · ${rec.recorded.model} · ${rec.recorded.date}` }));
+  appendReference(bubble, rec);
   return bubble;
+}
+
+function renderCalcTables(tables) {
+  const details = el('details', { class: 'qa-calc' },
+    el('summary', { text: `Exact figures calculated by the page (${tables.length} table${tables.length === 1 ? '' : 's'})` }));
+  for (const t of tables) {
+    const { settings, data } = charts.renderTables(t, { limit: 100 });
+    details.append(settings, data);
+  }
+  return details;
 }
 
 function renderChartBlock(rec) {
@@ -878,6 +958,185 @@ function renderSources(sources, msgId) {
   return el('div', { class: 'qa-sources' }, toggle, list);
 }
 
+// ------------------------------------------------------------------ sample data
+
+const SAMPLE_BASE = new URL('samples/', import.meta.url).href;
+const sample = { manifest: null, recorded: null, buffers: new Map() };
+const sampleUrl = (path) => SAMPLE_BASE + path.split('/').map(encodeURIComponent).join('/');
+
+async function loadManifest() {
+  try {
+    sample.manifest = await (await fetch(SAMPLE_BASE + 'manifest.json')).json();
+  } catch (e) {
+    $('qa-sample').hidden = true; // no sample pack published: hide the section
+    return;
+  }
+  try {
+    const res = await fetch(SAMPLE_BASE + 'recorded.json', { cache: 'no-cache' });
+    if (res.ok) sample.recorded = await res.json();
+  } catch (e) { /* no recordings yet */ }
+  renderSampleFiles();
+  renderSampleQuestions();
+}
+
+function renderSampleFiles() {
+  const m = sample.manifest;
+  $('qa-sample-intro').textContent = `No files needed: explore the tool with documents from ${m.company}. ${m.note} Preview what’s inside, then click a question.`;
+  $('qa-sample-files').replaceChildren(...m.files.map((f) => el('li', {},
+    icon(f.kind === 'xlsx' ? 'sheet' : 'file'),
+    el('div', { class: 'qa-grow' },
+      el('strong', { text: f.title }),
+      el('span', { class: 'qa-help', text: `${f.folder}/${f.name}` }),
+      el('span', { class: 'qa-help', text: f.description }),
+      el('div', { class: 'qa-file-actions' },
+        el('button', { type: 'button', class: 'btn-link', onclick: () => previewSample(f) }, 'Preview'),
+        el('a', { href: sampleUrl(f.path), download: f.name }, 'Download'))))));
+}
+
+function renderSampleQuestions() {
+  const groups = new Map();
+  for (const q of sample.manifest.questions) {
+    if (!groups.has(q.group)) groups.set(q.group, []);
+    groups.get(q.group).push(q);
+  }
+  const recorded = (q) => sample.recorded && sample.recorded.answers && sample.recorded.answers[q.id];
+  $('qa-sample-questions').replaceChildren(
+    el('p', { class: 'qa-label', text: 'Try asking' }),
+    ...[...groups].map(([group, qs]) => el('div', { class: 'qa-q-group' }, el('span', { text: group }),
+      qs.map((q) => el('button', { type: 'button', class: 'qa-chip-q', title: recorded(q) ? 'A recorded answer is available' : '',
+        onclick: () => askSample(q) }, recorded(q) ? el('span', { class: 'qa-rec-dot', 'aria-hidden': 'true' }) : null, q.text)))),
+    sample.recorded ? el('p', { class: 'qa-help' }, el('span', { class: 'qa-rec-dot', 'aria-hidden': 'true' }),
+      `Green dot: a recorded answer (${sample.recorded.model}, ${sample.recorded.date}) shows instantly without an API key. With a key, questions are answered live.`) : null);
+}
+
+async function sampleBuffer(f) {
+  if (!sample.buffers.has(f.path)) {
+    const res = await fetch(sampleUrl(f.path));
+    if (!res.ok) throw new Error(`couldn’t download ${f.name}`);
+    sample.buffers.set(f.path, await res.arrayBuffer());
+  }
+  return sample.buffers.get(f.path).slice(0); // parsers may detach the buffer
+}
+
+async function previewSample(f) {
+  const dlg = $('qa-preview');
+  $('qa-preview-title').textContent = `${f.title} · ${f.name}`;
+  const body = $('qa-preview-body');
+  body.replaceChildren(el('p', { class: 'qa-help', text: 'Loading…' }));
+  if (!dlg.open) dlg.showModal();
+  try {
+    const parsed = await engine.parseFile(f.name, await sampleBuffer(f));
+    const blocks = [];
+    if (parsed.tables && parsed.tables.length) {
+      for (const t of parsed.tables) {
+        const show = t.rows.slice(0, 15);
+        blocks.push(el('h4', { text: `Sheet “${t.sheet}” · ${t.rows.length} rows` }), el('div', { class: 'qa-table-wrap' }, el('table', { class: 'qa-table' },
+          el('thead', {}, el('tr', {}, t.headers.map((hd) => el('th', { scope: 'col', text: hd })))),
+          el('tbody', {}, show.map((r) => el('tr', {}, t.headers.map((hd) => el('td', { text: r.values[hd] == null ? '' : String(r.values[hd]) }))))))));
+        if (t.rows.length > show.length) blocks.push(el('p', { class: 'qa-help', text: `…and ${t.rows.length - show.length} more rows.` }));
+      }
+    } else if (parsed.pages) {
+      for (const u of parsed.units) blocks.push(el('div', { class: 'qa-preview-page' }, el('h4', { text: `Page ${u.page}` }), el('p', { text: u.text })));
+    } else {
+      for (const u of parsed.units) blocks.push(el('h4', { text: u.section || 'Introduction' }), el('p', { text: u.text }));
+    }
+    body.replaceChildren(...blocks);
+  } catch (e) {
+    body.replaceChildren(el('p', { class: 'qa-error', text: `Couldn’t preview this file: ${e.message}` }));
+  }
+}
+
+async function loadSamples() {
+  if (state.mode !== 'sample') await switchMode('sample');
+  const have = new Set([...state.files.values()].map((f) => `${f.folder}/${f.name}`));
+  const missing = sample.manifest.files.filter((f) => !have.has(`${f.folder}/${f.name}`));
+  if (!missing.length) { $('qa-sample-status').textContent = 'Sample data is loaded.'; return; }
+  $('qa-sample-status').textContent = 'Loading sample data…';
+  await addFiles(missing.map((f) => ({ name: f.name, folder: f.folder, size: 0, read: () => sampleBuffer(f) })));
+  $('qa-sample-status').textContent = state.files.size ? 'Sample data is loaded. Ask anything below.' : 'Couldn’t load the sample data.';
+}
+
+function currentSampleQuestion(text) {
+  if (state.mode !== 'sample' || !sample.manifest) return null;
+  return sample.manifest.questions.find((q) => q.text.trim().toLowerCase() === text.trim().toLowerCase()) || null;
+}
+
+async function askSample(q) {
+  if (state.mode !== 'sample') await switchMode('sample');
+  if (state.asking || state.busy) return;
+  const rec = sample.recorded && sample.recorded.answers && sample.recorded.answers[q.id];
+  if (readKey()) {
+    if (!state.files.size) await loadSamples();
+    if (state.files.size) return askQuestion(q.text);
+  }
+  if (rec) return showRecorded(q, rec);
+  showStatus('Enter your Claude API key above to ask this question live; recorded answers aren’t available yet.', { error: true });
+  $('qa-api-key').focus();
+}
+
+function showRecorded(q, saved) {
+  const user = { role: 'user', text: q.text };
+  const bot = { ...JSON.parse(JSON.stringify(saved)), id: ++state.messageCount, sampleId: q.id,
+    recorded: { model: sample.recorded.model, date: sample.recorded.date } };
+  const transcript = $('qa-transcript');
+  transcript.hidden = false;
+  transcript.append(renderRecord(user), renderRecord(bot));
+  pushRecord(user);
+  pushRecord(bot);
+  state.history.push({ role: 'user', content: q.text }, { role: 'assistant', content: historyEntry(bot, bot.text || '') });
+  state.history = state.history.slice(-20);
+  saveConversation();
+  transcript.lastElementChild.scrollIntoView({ block: 'nearest' });
+}
+
+function appendReference(bubble, rec) {
+  const q = rec.sampleId && sample.manifest && sample.manifest.questions.find((x) => x.id === rec.sampleId);
+  if (q) bubble.append(el('div', { class: 'qa-reference' }, el('strong', { text: 'Reference answer (answer key)' }), q.reference));
+}
+
+/** Runs every sample question live and downloads the answers as recorded.json (owner tool, ?record=1). */
+async function recordSamples() {
+  const status = $('qa-record-status');
+  if (!readKey()) { status.textContent = 'Enter your API key first.'; return; }
+  if (state.mode !== 'sample') await switchMode('sample');
+  if (!state.files.size) await loadSamples();
+  if (!state.files.size) { status.textContent = 'Couldn’t load the sample data.'; return; }
+  const answers = {};
+  const qs = sample.manifest.questions;
+  $('qa-record').disabled = true;
+  try {
+    for (const [i, q] of qs.entries()) {
+      status.textContent = `Recording ${i + 1} of ${qs.length}: ${q.text}`;
+      const { rec } = await answerQuestion(q.text, []);
+      answers[q.id] = { ...rec, sampleId: q.id };
+    }
+    const out = { model: model(), date: new Date().toISOString().slice(0, 10), settings: state.settings, answers };
+    const a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' })), download: 'recorded.json' });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    status.textContent = `Done: ${qs.length} answers recorded. Put recorded.json in local-qa/samples/ and publish.`;
+  } catch (e) {
+    status.textContent = `Recording stopped: ${e.message}`;
+  } finally {
+    $('qa-record').disabled = false;
+  }
+}
+
+function wireSamples() {
+  document.querySelectorAll('#qa-sample [data-mode]').forEach((b) => b.addEventListener('click', () => switchMode(b.dataset.mode)));
+  $('qa-sample-load').addEventListener('click', loadSamples);
+  $('qa-preview-close').addEventListener('click', () => $('qa-preview').close());
+  $('qa-preview').addEventListener('click', (e) => { if (e.target === $('qa-preview')) $('qa-preview').close(); });
+  $('qa-show-reference').checked = local.get('localqa.showReference') === '1';
+  $('qa-show-reference').addEventListener('change', (e) => {
+    local.set('localqa.showReference', e.target.checked ? '1' : null);
+    paintMode();
+  });
+  $('qa-recorder').hidden = new URLSearchParams(location.search).get('record') !== '1';
+  $('qa-record').addEventListener('click', recordSamples);
+}
+
 // ------------------------------------------------------------------ start (last, so every helper above is defined)
 
 wire();
@@ -886,6 +1145,12 @@ renderOneDrive();
 loadSettings();
 renderKey();
 renderSettings();
-renderFiles();
-updateAskState();
-restore();
+wireSamples();
+(async () => {
+  // First visit (no saved documents of their own): open on the sample data.
+  const saved = local.get('localqa.mode');
+  state.mode = saved === 'sample' || saved === 'mine' ? saved : ((await store.get('documents')) ? 'mine' : 'sample');
+  paintMode();
+  await restore();
+  await loadManifest();
+})();
