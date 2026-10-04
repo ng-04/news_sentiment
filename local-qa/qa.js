@@ -826,8 +826,21 @@ function formatAnswer(text, msgId, sourceCount) {
     if (last < line.length) out.push(line.slice(last));
     return out;
   };
-  return text.trim().split(/\n\s*\n/).map((para) => {
+  const cells = (line) => line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  const isRule = (line) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(line);
+  return text.trim().split(/\n\s*\n/).flatMap((para) => {
     const lines = para.split('\n');
+    // A Markdown table (header row, |---| rule, rows), possibly with a sentence before it.
+    const ruleAt = lines.findIndex((l, i) => i > 0 && isRule(l) && lines[i - 1].includes('|'));
+    if (ruleAt > 0) {
+      const head = cells(lines[ruleAt - 1]);
+      const rows = lines.slice(ruleAt + 1).filter((l) => l.includes('|')).map(cells);
+      const before = lines.slice(0, ruleAt - 1).join('\n').trim();
+      const table = el('div', { class: 'qa-table-wrap qa-answer-table' }, el('table', { class: 'qa-table' },
+        el('thead', {}, el('tr', {}, head.map((c) => el('th', { scope: 'col' }, inline(c))))),
+        el('tbody', {}, rows.map((r) => el('tr', {}, head.map((_, i) => el('td', {}, inline(r[i] || ''))))))));
+      return before ? [el('p', {}, ...inline(before)), table] : [table];
+    }
     if (lines.every((l) => /^\s*([-*•]|\d+\.)\s+/.test(l))) {
       return el('ul', {}, lines.map((l) => el('li', {}, inline(l.replace(/^\s*([-*•]|\d+\.)\s+/, '')))));
     }
