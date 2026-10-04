@@ -978,3 +978,4 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
 .qa-chart-actions { gap: 16px; }
 .qa-chart-data summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blue); }
 .qa-chart-data[open] { display: flex; flex-direction: column; gap: 8px; }
+.qa-answer-table { margin: 4px 0 8px; max-height: 480px; }
