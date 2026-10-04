@@ -765,7 +765,7 @@ async function answerQuestion(question, history, { onText = () => {}, onStage = 
         notes: [...notes, `I couldn’t prepare that chart: ${prepared.error}. Try rephrasing, e.g. name the sheet and columns.`] };
     }
   } else if (engine.isNotFound(text) && !tables.length) {
-    rec = { role: 'bot', kind: 'notfound', id };
+    rec = { role: 'bot', kind: 'notfound', id, checked: full ? files.length : null };
   } else {
     // In whole-documents mode only the passages actually cited are worth listing.
     const shown = cited.length || full ? cited : hits.map((_, i) => i + 1);
@@ -839,7 +839,9 @@ function renderRecord(rec) {
     bubble.classList.add('qa-notfound');
     bubble.append(el('div', { class: 'qa-answer' }, el('p', {},
       el('strong', { text: engine.NOT_FOUND }), el('br'),
-      el('span', { class: 'qa-help', text: 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
+      el('span', { class: 'qa-help', text: rec.checked
+        ? `Claude read all ${rec.checked} document${rec.checked === 1 ? '' : 's'} and found nothing relevant. If you know it’s there, try rephrasing or naming the file.`
+        : 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
     if (rec.recorded) bubble.prepend(el('p', { class: 'qa-recorded', text: `Recorded answer · ${rec.recorded.model} · ${rec.recorded.date}` }));
     appendReference(bubble, rec);
     return bubble;

@@ -586,7 +586,10 @@ export const CALC_TOOL = {
 
 export function buildPrompt(question, hits, history, settings, catalog = '', complete = false) {
   const grounding = settings.strict_grounding
-    ? `If the excerpts do not contain the answer, reply with exactly "${NOT_FOUND_PLAIN}" and nothing else. Never use outside knowledge.`
+    ? 'Answer only from the excerpts and never use outside knowledge. You may count, total, group, compare or summarise what '
+      + 'the excerpts state (for example, counting reports by month from their dates). If the excerpts are relevant but '
+      + 'don\'t fully answer the question, answer with what they do show and say what is missing. '
+      + `Only when nothing in the excerpts is relevant to the question, reply with exactly "${NOT_FOUND_PLAIN}" and nothing else.`
     : 'Prefer the excerpts. If they don\'t fully answer the question you may add general knowledge, but label that part clearly as not coming from the user\'s documents.';
   const system = 'You answer questions about the user\'s own documents using the numbered excerpts provided in their message. '
     + 'Cite every claim with the excerpt number in square brackets, like [2] or [1][3], placed right after the claim. '
