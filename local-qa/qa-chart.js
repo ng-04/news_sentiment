@@ -84,7 +84,7 @@ export function prepareChart(spec, files, hits, labelFor) {
   }
 }
 
-function fromSheet(sp, files) {
+function fromSheet(sp, files, maxRows = MAX_CATEGORIES) {
   if (!sp) throw new Error('the proposal didn’t say which spreadsheet to use');
   const candidates = files.filter((f) => same(f.name, sp.file) && (f.parsed.tables || []).length);
   const file = candidates.find((f) => sp.folder == null || same(f.folder, sp.folder)) || candidates[0];
@@ -96,7 +96,7 @@ function fromSheet(sp, files) {
     if (!found) throw new Error(`sheet “${table.sheet}” has no column “${name}” (columns: ${table.headers.join(', ')})`);
     return found;
   };
-  const catCol = col(sp.category_column);
+  const catCol = sp.category_column ? col(sp.category_column) : null; // none = one grand total
   const valueCols = (sp.value_columns || []).map(col);
   if (!valueCols.length) throw new Error('the proposal didn’t name a column to plot');
   const agg = ['sum', 'average', 'count', 'min', 'max', 'none'].includes(sp.aggregation) ? sp.aggregation : 'sum';
@@ -118,16 +118,17 @@ function fromSheet(sp, files) {
 
   let categories;
   let series;
+  if (agg === 'none' && !catCol) throw new Error('“each row” needs a category column');
   if (agg === 'none') {
-    if (rows.length > MAX_CATEGORIES) {
-      throw new Error(`that would plot ${rows.length} rows one by one (at most ${MAX_CATEGORIES}); ask for totals by a category, or a filter`);
+    if (rows.length > maxRows) {
+      throw new Error(`that would list ${rows.length} rows one by one (at most ${maxRows}); ask for totals by a category, or a filter`);
     }
     categories = rows.map((r) => String(r.values[catCol] ?? `Row ${r.row}`));
     series = valueCols.map((c) => ({ name: c, values: rows.map((r) => { const n = toNumber(r.values[c]); return Number.isFinite(n) ? n : null; }) }));
   } else {
     const groups = new Map();
     for (const r of rows) {
-      const key = String(r.values[catCol] ?? '(blank)');
+      const key = catCol ? String(r.values[catCol] ?? '(blank)') : 'All selected rows';
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(r);
     }
@@ -164,7 +165,7 @@ function fromSheet(sp, files) {
     categories, series, quoted: false,
     settings: [
       ['Chart type', null],
-      ['X axis (categories)', catCol],
+      ['X axis (categories)', catCol || 'None (grand total)'],
       ['Y values', valueCols.join(', ')],
       ['Totals', AGG_LABEL[agg]],
       ['Filters', filters.length ? filters.map((f) => `${f.column} ${f.op.replace('_', ' ')} “${f.value}”`).join('; ') : 'None (all rows)'],
@@ -256,11 +257,29 @@ function fromExcerpts(ex, hits, labelFor) {
   };
 }
 
+// ------------------------------------------------------------------ exact calculations for answers
+
+/** Runs a `calculate` request: the same exact maths as charts, returned as text for Claude and as a
+ *  table to show the user. Returns {ok, text, table?, error?}. */
+export function computeTable(spec, files) {
+  try {
+    if (!spec || !['spreadsheet', 'document_stats'].includes(spec.source)) throw new Error('source must be spreadsheet or document_stats');
+    const data = spec.source === 'document_stats' ? fromStats(spec.document_stats, files) : fromSheet(spec.spreadsheet, files, 200);
+    const table = { ...data, settings: data.settings.filter(([k]) => k !== 'Chart type'), title: 'Calculated by the page' };
+    const head = ['Category', ...table.series.map((s) => s.name)].join(' | ');
+    const body = table.categories.map((c, i) => [c, ...table.series.map((s) => (s.values[i] == null ? '' : +s.values[i].toFixed(4)))].join(' | '));
+    const text = `${head}\n${body.join('\n')}\n\nSource: ${table.sourceLine}. ${table.settings.map(([k, v]) => `${k}: ${v}`).join('; ')}.`;
+    return { ok: true, text, table };
+  } catch (e) {
+    return { ok: false, text: `Could not calculate: ${e.message}.`, error: e.message };
+  }
+}
+
 // ------------------------------------------------------------------ confirmation tables
 
 export function renderTables(chart, { limit = 50 } = {}) {
   const settings = h('table', { class: 'qa-table qa-table-settings' }, h('tbody', {},
-    chart.settings.map(([k, v]) => h('tr', {}, h('th', { scope: 'row', text: k }), h('td', { text: v ?? TYPE_LABEL[chart.type] }))),
+    chart.settings.map(([k, v]) => h('tr', {}, h('th', { scope: 'row', text: k }), h('td', { text: v ?? TYPE_LABEL[chart.type] ?? '' }))),
     h('tr', {}, h('th', { scope: 'row', text: 'Source' }), h('td', { text: chart.sourceLine }))));
   const head = h('tr', {}, h('th', { scope: 'col', text: chart.xLabel || 'Category' }),
     chart.series.map((sr) => h('th', { scope: 'col', class: 'qa-num', text: sr.name })));

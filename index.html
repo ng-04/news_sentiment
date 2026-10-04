@@ -191,6 +191,42 @@
       <p class="qa-banner" id="qa-status" role="status" hidden></p>
 
       <div class="qa-stack" id="qa-app">
+        <div class="qa-card qa-sample" id="qa-sample">
+          <div class="qa-card-head qa-wrap">
+            <h3>Try it with sample data</h3>
+            <div class="qa-seg" role="group" aria-label="Which documents to use">
+              <button type="button" data-mode="sample" aria-pressed="true">Sample data</button>
+              <button type="button" data-mode="mine" aria-pressed="false">My documents</button>
+            </div>
+          </div>
+          <div id="qa-sample-body">
+            <p class="qa-help qa-sample-intro" id="qa-sample-intro">No files needed: explore the tool with a fictitious company’s documents. Preview what’s inside, then click a question.</p>
+            <ul class="qa-sample-files" id="qa-sample-files"></ul>
+            <div class="qa-row qa-row-center">
+              <button type="button" class="btn btn-primary" id="qa-sample-load">Load sample data</button>
+              <span class="qa-help" id="qa-sample-status" role="status"></span>
+            </div>
+            <div class="qa-sample-questions" id="qa-sample-questions"></div>
+            <label class="qa-check"><input type="checkbox" id="qa-show-reference"> Show the reference answer under each sample answer</label>
+            <div class="qa-recorder" id="qa-recorder" hidden>
+              <p class="qa-help"><strong>Record sample answers.</strong> Runs every suggested question live with your key (about $1 in total) and downloads <code>recorded.json</code>. Put that file in <code>local-qa/samples/</code> so visitors without a key see real answers.</p>
+              <div class="qa-row qa-row-center">
+                <button type="button" class="btn qa-btn-secondary" id="qa-record">Record answers</button>
+                <span class="qa-help" id="qa-record-status" role="status"></span>
+              </div>
+            </div>
+          </div>
+          <p class="qa-help" id="qa-mine-note" hidden>You’re using your own documents. Switch to <em>Sample data</em> to explore the demo; your documents and chat stay as they are.</p>
+        </div>
+
+        <dialog class="qa-preview" id="qa-preview" aria-labelledby="qa-preview-title">
+          <div class="qa-preview-head">
+            <h3 id="qa-preview-title">Preview</h3>
+            <button type="button" class="qa-icon-btn" id="qa-preview-close" aria-label="Close preview"><svg class="qa-i" aria-hidden="true"><use href="#qa-i-x"/></svg></button>
+          </div>
+          <div class="qa-preview-body" id="qa-preview-body"></div>
+        </dialog>
+
         <div class="qa-card" id="qa-key-card">
           <div class="qa-card-head">
             <h3>Your Claude API key</h3>
@@ -228,6 +264,7 @@
             <h3>1. Add documents</h3>
             <button type="button" class="btn-link qa-muted" id="qa-clear" hidden>Clear all</button>
           </div>
+          <div id="qa-add-controls">
           <div class="qa-grid-2 qa-add-grid">
             <div class="qa-source-box" id="qa-onedrive">
               <div class="qa-row qa-row-center qa-nowrap">
@@ -262,6 +299,7 @@
             </div>
           </div>
           <p class="qa-help qa-tip">No sign-in? Drag your synced OneDrive folder here, or choose <strong>Download</strong> on a folder at onedrive.com and drop the .zip. Subfolders are kept. Files are read in your browser and never uploaded anywhere.</p>
+          </div>
 
           <div class="qa-col qa-progress-wrap" id="qa-progress" hidden>
             <div class="qa-row qa-help qa-between"><span id="qa-progress-label">Indexing</span><span id="qa-progress-count"></span></div>

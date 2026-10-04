@@ -1,0 +1,100 @@
+{
+  "company": "Brightline Home Appliances, a fictitious company",
+  "note": "All names, companies and figures are made up for this demo.",
+  "files": [
+    {
+      "name": "Customer_Calls_Sep2026.docx",
+      "folder": "Customer insights",
+      "path": "files/Customer insights/Customer_Calls_Sep2026.docx",
+      "title": "Customer call notes",
+      "description": "12 informal notes from key-account calls: complaints, sentiment, competitor mentions, follow-ups.",
+      "kind": "docx"
+    },
+    {
+      "name": "Store_Visit_Reports_Aug2026.pdf",
+      "folder": "Customer insights",
+      "path": "files/Customer insights/Store_Visit_Reports_Aug2026.pdf",
+      "title": "Store visit reports",
+      "description": "6 one-page reports from store visits: stock-outs, displays, competitor pricing, footfall.",
+      "kind": "pdf"
+    },
+    {
+      "name": "Sales_FY27_H1.xlsx",
+      "folder": "Sales",
+      "path": "files/Sales/Sales_FY27_H1.xlsx",
+      "title": "Sales, April to September 2026",
+      "description": "184 monthly rows of units and net revenue by product and region, plus product targets.",
+      "kind": "xlsx"
+    },
+    {
+      "name": "Sales_Review_H1_Commentary.docx",
+      "folder": "Sales",
+      "path": "files/Sales/Sales_Review_H1_Commentary.docx",
+      "title": "Sales commentary",
+      "description": "Management's written review of the half-year: heatwave, purifier supply problem, Halo launch.",
+      "kind": "docx"
+    }
+  ],
+  "questions": [
+    {
+      "id": "A1",
+      "group": "Extract a table",
+      "text": "Create a table of all customer calls with customer, city, date, product, main issue, sentiment, follow-up owner and due date.",
+      "reference": "A 12-row table:\nCustomer | City | Date | Product | Main issue | Sentiment | Owner | Due\nMeridian Foods | Pune | 2 Sep 2026 | Cascade Water Purifier | Filter cartridge availability | Negative | Ravi Menon | 10 Sep 2026\nSunrise Retail | Mumbai | 3 Sep 2026 | Halo Smart Bulb | App pairing problems | Neutral | Priya Shah | 15 Sep 2026\nGreenLeaf Hotels | Bengaluru | 4 Sep 2026 | Drift Air Cooler | Delivery delays | Negative | Arjun Rao | 8 Sep 2026\nKaveri Distributors | Chennai | 5 Sep 2026 | Cascade Water Purifier | Filter cartridge availability | Negative | Ravi Menon | 12 Sep 2026\nUrban Nest Interiors | Delhi | 8 Sep 2026 | Glow LED Lamp | None (positive feedback) | Positive | Neha Gupta | 30 Sep 2026\nCoastal Mart | Kochi | 9 Sep 2026 | Breeze Fan | Price higher than competitor | Neutral | Arjun Rao | 20 Sep 2026\nSapphire Electronics | Hyderabad | 11 Sep 2026 | Flux Mixer Grinder | Delivery delays | Negative | Priya Shah | 18 Sep 2026\nHimalaya Stores | Dehradun | 12 Sep 2026 | Ember Room Heater | None (pre-season order) | Positive | Neha Gupta | 25 Sep 2026\nTechHome Solutions | Bengaluru | 15 Sep 2026 | Halo Smart Bulb | App pairing problems | Negative | Priya Shah | 22 Sep 2026\nAnnapurna Caterers | Pune | 16 Sep 2026 | Aurora Kettle | Delivery delays | Neutral | Arjun Rao | 19 Sep 2026\nBrightPath Schools | Lucknow | 18 Sep 2026 | Halo Smart Bulb | App pairing problems | Neutral | Priya Shah | 29 Sep 2026\nDelta Supermarkets | Ahmedabad | 22 Sep 2026 | Cascade Water Purifier | Filter cartridge availability; Price higher than competitor | Neutral | Ravi Menon | 1 Oct 2026"
+    },
+    {
+      "id": "A5",
+      "group": "Extract a table",
+      "text": "From the store visit reports, make a table of stock-outs: store, region, product, how many days, visit date.",
+      "reference": "Store | Region | Product | Days | Visit date\nChennai, Anna Nagar | South | Cascade Water Purifier | 9 days | 12 Aug 2026\nBengaluru, Indiranagar | South | Cascade Water Purifier | 6 days | 14 Aug 2026\nMumbai, Andheri | West | Glow LED Lamp | 4 days | 20 Aug 2026\nHyderabad, Banjara Hills | South | Cascade Water Purifier | 11 days | 25 Aug 2026"
+    },
+    {
+      "id": "A3",
+      "group": "Find insights",
+      "text": "Which customers are at risk of moving to a competitor, and why?",
+      "reference": "Meridian Foods (Pune): no filter cartridges, evaluating AquaPure, 40-unit order on hold. Kaveri Distributors (Chennai): stock and cartridge shortage, AquaPure offering better margins. TechHome Solutions (Bengaluru): Halo pairing failures, trialling LumaSmart, orders paused."
+    },
+    {
+      "id": "A7",
+      "group": "Connect documents",
+      "text": "Do the store visit reports or customer calls explain any dip in the sales data?",
+      "reference": "Yes: Cascade Water Purifier sales in the South fell in August (136 units in July to 35 in August) because South stores (Chennai, Bengaluru, Hyderabad) were out of stock; the commentary blames missed supplier shipments. Sales recovered in September (150). Customers Kaveri and Meridian also cite cartridge/stock shortages."
+    },
+    {
+      "id": "B6",
+      "group": "Calculate",
+      "text": "Which product earned the most net revenue in H1, and how much?",
+      "reference": "Cascade Water Purifier, ₹40,085,016 (₹400.9 lakh)."
+    },
+    {
+      "id": "B8",
+      "group": "Calculate",
+      "text": "Which products missed their H1 unit target?",
+      "reference": "Missed: Cascade Water Purifier (3,246 vs target 3,700), Ember Room Heater (1,145 vs target 1,400), Flux Mixer Grinder (5,109 vs target 5,400), Halo Smart Bulb (4,890 vs target 6,400)."
+    },
+    {
+      "id": "B3",
+      "group": "Chart",
+      "text": "Plot monthly units sold of Drift Air Cooler as a line chart.",
+      "reference": "Proposal table, then line chart with all regions summed: April 1,095; May 1,469; June 1,150; July 598; August 398; September 323."
+    },
+    {
+      "id": "B4",
+      "group": "Chart",
+      "text": "Bar chart of total net revenue by product for H1.",
+      "reference": "Bar chart, values (₹): Cascade Water Purifier ₹40,085,016; Drift Air Cooler ₹39,353,430; Breeze Fan ₹30,278,407; Aurora Kettle ₹24,091,861; Flux Mixer Grinder ₹22,321,476; Glow LED Lamp ₹12,884,916; Halo Smart Bulb ₹5,684,360; Ember Room Heater ₹2,909,900. Top: Cascade Water Purifier."
+    },
+    {
+      "id": "B9",
+      "group": "Summarise",
+      "text": "Summarise how the Halo Smart Bulb has done since launch.",
+      "reference": "Launched June 2026 with a 15% introductory discount; units grew every month (June 501; July 1,078; August 1,513; September 1,798); app pairing problems reported by customers and stores; app fix in progress."
+    },
+    {
+      "id": "A8",
+      "group": "Trap question",
+      "text": "What did customers say about the warranty extension programme?",
+      "reference": "Not in the documents. The tool should answer that it couldn't find this."
+    }
+  ]
+}

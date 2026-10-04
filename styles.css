@@ -923,7 +923,7 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
   .qa-reindex { flex-wrap: wrap; }
 }
 .qa-key-actions { margin-top: 16px; }
-.qa-ws-toggle { margin-top: 12px; }
+.qa-ws-toggle { margin-top: 12px; font-size: 0.85rem; }
 .qa-ws { margin-top: 12px; max-width: 420px; }
 .qa-key-note { margin-top: 12px; }
 .qa-add-grid { align-items: stretch; }
@@ -979,3 +979,40 @@ svg.qa-i-lg { width: 24px; height: 24px; color: var(--gray-600); }
 .qa-chart-data summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blue); }
 .qa-chart-data[open] { display: flex; flex-direction: column; gap: 8px; }
 .qa-answer-table { margin: 4px 0 8px; max-height: 480px; }
+
+/* Local Q&A sample data */
+.qa-wrap { flex-wrap: wrap; }
+.qa-seg { display: inline-flex; border: 1px solid var(--gray-300); border-radius: 8px; overflow: hidden; }
+.qa-seg button { font: inherit; font-size: 0.88rem; font-weight: 600; min-height: 40px; padding: 0 14px; border: none; background: var(--bg); color: var(--heading); cursor: pointer; }
+.qa-seg button + button { border-left: 1px solid var(--gray-300); }
+.qa-seg button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.qa-sample-intro { margin-bottom: 14px; }
+.qa-sample-files { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.qa-sample-files li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--gray-100); border-radius: var(--radius); background: var(--bg-alt); }
+.qa-sample-files .qa-grow strong { color: var(--heading); }
+.qa-sample-files .qa-file-actions { display: flex; gap: 14px; margin-top: 4px; font-size: 0.85rem; }
+.qa-sample-questions { margin: 18px 0 12px; display: flex; flex-direction: column; gap: 10px; }
+.qa-q-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.qa-q-group > span { width: 140px; flex-shrink: 0; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-600); }
+.qa-chip-q { font: inherit; font-size: 0.86rem; text-align: left; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--gray-300); background: var(--bg); color: var(--heading); cursor: pointer; }
+.qa-chip-q:hover { border-color: var(--blue); color: var(--blue); }
+.qa-chip-q .qa-rec-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 6px; vertical-align: 1px; }
+.qa-recorder { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--gray-300); border-radius: var(--radius); }
+.qa-recorded { margin: 0; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-neutral); }
+.qa-reference { display: none; border-left: 3px solid var(--green); background: var(--green-bg); padding: 8px 12px; border-radius: 6px; font-size: 0.86rem; white-space: pre-line; }
+.qa-show-ref .qa-reference { display: block; }
+.qa-reference strong { display: block; color: var(--green); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.qa-calc summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blue); }
+.qa-calc[open] { display: flex; flex-direction: column; gap: 8px; }
+.qa-preview { width: min(860px, calc(100vw - 32px)); max-height: 85vh; padding: 0; border: 1px solid var(--gray-300); border-radius: var(--radius); background: var(--bg); color: var(--ink); box-shadow: 0 12px 40px rgba(11, 35, 64, 0.3); }
+.qa-preview::backdrop { background: rgba(11, 35, 64, 0.45); }
+.qa-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 12px 20px; border-bottom: 1px solid var(--gray-100); position: sticky; top: 0; background: var(--bg); }
+.qa-preview-head h3 { margin: 0; font-size: 1.05rem; color: var(--heading); }
+.qa-preview-body { padding: 16px 20px 20px; overflow: auto; max-height: calc(85vh - 64px); display: flex; flex-direction: column; gap: 12px; }
+.qa-preview-body h4 { margin: 8px 0 0; font-size: 0.95rem; color: var(--heading); }
+.qa-preview-body p { margin: 0; font-size: 0.9rem; line-height: 1.6; }
+.qa-preview-page { border: 1px solid var(--gray-100); border-radius: 8px; padding: 12px 14px; background: var(--bg-alt); }
+@media (max-width: 640px) {
+  .qa-sample-files { grid-template-columns: minmax(0, 1fr); }
+  .qa-q-group > span { width: 100%; }
+}
