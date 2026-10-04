@@ -743,12 +743,18 @@ async function answerQuestion(question, history, { onText = () => {}, onStage = 
   onStage(full ? 'Reading all your documents…' : 'Thinking…');
   let text = '';
   const { system, messages } = engine.buildPrompt(question, hits, history, s, catalog, full);
-  const { notes, chart, calcs } = await engine.streamAnswer({
+  const { notes, chart, calcs, usage, stopReason } = await engine.streamAnswer({
     apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s,
     tools: [engine.CHART_TOOL, engine.CALC_TOOL],
     onCalculate: (input) => charts.computeTable(input, files),
   }, (delta) => { text += delta; onText(text); });
   if (full) notes.unshift(`Answered from all ${files.length} document${files.length === 1 ? '' : 's'} (whole-documents mode).`);
+  // What went into this answer, shown under "About this answer" for checking and diagnosis.
+  const meta = {
+    model: model(), effort: s.reasoning_effort, mode: full ? 'Whole documents' : 'Best-matching passages',
+    documents: files.length, excerpts: hits.length, calculations: calcs.length,
+    tokensIn: usage.input, tokensOut: usage.output, stopReason, reply: text,
+  };
   const tables = calcs.filter((c) => c.ok).map((c) => c.table);
   const sources = (n) => ({ n, chunk: hits[n - 1].chunk, score: hits[n - 1].score });
   const cited = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))]
@@ -759,17 +765,17 @@ async function answerQuestion(question, history, { onText = () => {}, onStage = 
     if (prepared.ok) {
       const refs = [...new Set(prepared.chart.series.flatMap((sr) => sr.refs || []))];
       const shown = [...new Set([...cited, ...refs])].sort((a, b) => a - b).map(sources);
-      rec = { role: 'bot', kind: 'chart', id, text, notes, sources: shown, chart: prepared.chart, status: 'proposed', tables };
+      rec = { role: 'bot', kind: 'chart', id, text, notes, sources: shown, chart: prepared.chart, status: 'proposed', tables, meta };
     } else {
-      rec = { role: 'bot', kind: 'answer', id, text, sources: cited.map(sources), tables,
+      rec = { role: 'bot', kind: 'answer', id, text, sources: cited.map(sources), tables, meta,
         notes: [...notes, `I couldn’t prepare that chart: ${prepared.error}. Try rephrasing, e.g. name the sheet and columns.`] };
     }
   } else if (engine.isNotFound(text) && !tables.length) {
-    rec = { role: 'bot', kind: 'notfound', id, checked: full ? files.length : null };
+    rec = { role: 'bot', kind: 'notfound', id, checked: full ? files.length : null, meta };
   } else {
     // In whole-documents mode only the passages actually cited are worth listing.
     const shown = cited.length || full ? cited : hits.map((_, i) => i + 1);
-    rec = { role: 'bot', kind: 'answer', id, text, notes, sources: shown.map(sources), tables };
+    rec = { role: 'bot', kind: 'answer', id, text, notes, sources: shown.map(sources), tables, meta };
   }
   return { rec, text };
 }
@@ -843,6 +849,7 @@ function renderRecord(rec) {
         ? `Claude read all ${rec.checked} document${rec.checked === 1 ? '' : 's'} and found nothing relevant. If you know it’s there, try rephrasing or naming the file.`
         : 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
     if (rec.recorded) bubble.prepend(el('p', { class: 'qa-recorded', text: `Recorded answer · ${rec.recorded.model} · ${rec.recorded.date}` }));
+    appendMeta(bubble, rec);
     appendReference(bubble, rec);
     return bubble;
   }
@@ -853,8 +860,28 @@ function renderRecord(rec) {
   if (rec.tables && rec.tables.length) bubble.append(renderCalcTables(rec.tables));
   if (rec.sources && rec.sources.length) bubble.append(renderSources(rec.sources, rec.id));
   if (rec.recorded) bubble.prepend(el('p', { class: 'qa-recorded', text: `Recorded answer · ${rec.recorded.model} · ${rec.recorded.date}` }));
+  appendMeta(bubble, rec);
   appendReference(bubble, rec);
   return bubble;
+}
+
+const fmtInt = (n) => (n || 0).toLocaleString();
+
+function appendMeta(bubble, rec) {
+  const m = rec.meta;
+  if (!m) return;
+  const rows = [
+    ['Model', `${m.model} · reasoning effort ${m.effort}`],
+    ['Read', `${m.mode}: ${m.excerpts} excerpt${m.excerpts === 1 ? '' : 's'} from ${m.documents} document${m.documents === 1 ? '' : 's'}`],
+    ['Calculations', m.calculations ? `${m.calculations} run by the page` : 'None'],
+    ['Tokens', `${fmtInt(m.tokensIn)} in · ${fmtInt(m.tokensOut)} out`],
+    ['Finished because', m.stopReason || '—'],
+  ];
+  bubble.append(el('details', { class: 'qa-meta' }, el('summary', { text: 'About this answer' }),
+    el('table', { class: 'qa-table qa-table-settings' }, el('tbody', {},
+      rows.map(([k, v]) => el('tr', {}, el('th', { scope: 'row', text: k }), el('td', { text: v }))))),
+    el('p', { class: 'qa-help', text: 'Claude’s reply, exactly as received:' }),
+    el('pre', { class: 'qa-raw', text: m.reply || '(no text)' })));
 }
 
 function renderCalcTables(tables) {

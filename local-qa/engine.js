@@ -435,7 +435,12 @@ export async function queryVector(question, history) {
 
 export const NOT_FOUND = 'I couldn’t find this in your documents.';
 const NOT_FOUND_PLAIN = "I couldn't find this in your documents.";
-export const isNotFound = (text) => [NOT_FOUND, NOT_FOUND_PLAIN].some((s) => text.trim().startsWith(s.slice(0, -1)));
+/** True only when the whole reply is the not-found sentence; a reply that starts with it and then
+ *  gives partial information is a real answer and must be shown. */
+export const isNotFound = (text) => {
+  const norm = (t) => t.trim().replace(/[\u2018\u2019]/g, "'").replace(/[.\s]+$/, '').toLowerCase();
+  return norm(text) === norm(NOT_FOUND_PLAIN);
+};
 
 const STYLE = {
   concise: 'Answer in a short paragraph (at most about 120 words) unless the question needs more.',
@@ -665,6 +670,8 @@ export async function streamAnswer({ apiKey, workspaceId, model, system, message
     params.max_tokens += REASONING_HEADROOM;
   }
   const calcs = [];
+  const usage = { input: 0, output: 0 };
+  let stopReason = null;
   let convo = messages;
   let wrote = false;
   try {
@@ -681,15 +688,19 @@ export async function streamAnswer({ apiKey, workspaceId, model, system, message
         onText(delta);
       });
       const final = await stream.finalMessage();
-      if (final.stop_reason === 'refusal') { notes.push('The model declined to answer this question.'); return { notes, chart: null, calcs }; }
+      usage.input += (final.usage && final.usage.input_tokens) || 0;
+      usage.output += (final.usage && final.usage.output_tokens) || 0;
+      stopReason = final.stop_reason;
+      const done = (chart = null) => ({ notes, chart, calcs, usage, stopReason });
+      if (final.stop_reason === 'refusal') { notes.push('The model declined to answer this question.'); return done(); }
       if (final.stop_reason === 'max_tokens') {
         notes.push('The answer was cut off at the length limit.');
-        return { notes, chart: null, calcs }; // a tool call cut off mid-way can't be trusted
+        return done(); // a tool call cut off mid-way can't be trusted
       }
       const chart = final.content.find((b) => b.type === 'tool_use' && b.name === 'propose_chart');
-      if (chart) return { notes, chart: chart.input, calcs };
+      if (chart) return done(chart.input);
       const asks = final.content.filter((b) => b.type === 'tool_use' && b.name === 'calculate');
-      if (final.stop_reason !== 'tool_use' || !asks.length || !onCalculate) return { notes, chart: null, calcs };
+      if (final.stop_reason !== 'tool_use' || !asks.length || !onCalculate) return done();
       const results = asks.map((call) => {
         const r = onCalculate(call.input);
         calcs.push(r);
@@ -699,7 +710,7 @@ export async function streamAnswer({ apiKey, workspaceId, model, system, message
       convo = [...convo, { role: 'assistant', content: final.content }, { role: 'user', content: results }];
     }
     notes.push('Stopped after several calculation steps; try a more specific question.');
-    return { notes, chart: null, calcs };
+    return { notes, chart: null, calcs, usage, stopReason };
   } catch (e) {
     throw mapError(Anthropic, e);
   }
