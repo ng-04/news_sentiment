@@ -94,7 +94,7 @@
       "id": "A8",
       "group": "Trap question",
       "text": "What did customers say about the warranty extension programme?",
-      "reference": "Not in the documents. The tool should answer that it couldn't find this."
+      "reference": "Not in the documents. The tool should say it couldn't find this, with a 'How I checked' table giving each of the documents and why it can't answer."
     }
   ]
 }
