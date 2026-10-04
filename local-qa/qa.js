@@ -733,19 +733,16 @@ async function answerQuestion(question, history, { onText = () => {}, onStage = 
   const full = s.context_mode === 'full' || (s.context_mode === 'auto' && totalChars <= engine.FULL_CONTEXT_CHARS);
   const hits = full ? state.index.chunks.map((chunk) => ({ chunk, score: 1 }))
     : state.index.search(await engine.queryVector(question, history), s);
-  // Charts and calculations can come from spreadsheets or the documents themselves even when no
-  // passage matches the wording, so those questions always reach Claude.
-  const wantsChart = engine.CHART_WORDS.test(question);
-  const hasSheets = files.some((f) => (f.parsed.tables || []).length);
-  const catalog = wantsChart || hasSheets ? engine.chartCatalog(files) : '';
-  if (!hits.length && !wantsChart && !hasSheets) return { rec: { role: 'bot', kind: 'notfound', id }, text: '' };
+  // The document list always goes along, so Claude can check every document before saying no.
+  const catalog = engine.chartCatalog(files);
+  // Every question reaches Claude (with the document list) so a "no" always comes from checking the documents.
 
   onStage(full ? 'Reading all your documents…' : 'Thinking…');
   let text = '';
   const { system, messages } = engine.buildPrompt(question, hits, history, s, catalog, full);
-  const { notes, chart, calcs, usage, stopReason } = await engine.streamAnswer({
+  const { notes, chart, calcs, usage, stopReason, notFound } = await engine.streamAnswer({
     apiKey: readKey(), workspaceId: readWorkspace(), model: model(), system, messages, settings: s,
-    tools: [engine.CHART_TOOL, engine.CALC_TOOL],
+    tools: [engine.CHART_TOOL, engine.CALC_TOOL, engine.NOT_FOUND_TOOL],
     onCalculate: (input) => charts.computeTable(input, files),
   }, (delta) => { text += delta; onText(text); });
   if (full) notes.unshift(`Answered from all ${files.length} document${files.length === 1 ? '' : 's'} (whole-documents mode).`);
@@ -770,8 +767,11 @@ async function answerQuestion(question, history, { onText = () => {}, onStage = 
       rec = { role: 'bot', kind: 'answer', id, text, sources: cited.map(sources), tables, meta,
         notes: [...notes, `I couldn’t prepare that chart: ${prepared.error}. Try rephrasing, e.g. name the sheet and columns.`] };
     }
-  } else if (engine.isNotFound(text) && !tables.length) {
-    rec = { role: 'bot', kind: 'notfound', id, checked: full ? files.length : null, meta };
+  } else if (notFound || (engine.isNotFound(text) && !tables.length)) {
+    const checks = notFound && Array.isArray(notFound.checks)
+      ? notFound.checks.filter((c) => c && c.document).map((c) => ({ document: String(c.document), reason: String(c.reason || '') })) : [];
+    rec = { role: 'bot', kind: 'notfound', id, checked: full ? files.length : null, passages: !full, meta,
+      checks, missing: notFound && notFound.missing ? String(notFound.missing) : '' };
   } else {
     // In whole-documents mode only the passages actually cited are worth listing.
     const shown = cited.length || full ? cited : hits.map((_, i) => i + 1);
@@ -846,8 +846,15 @@ function renderRecord(rec) {
     bubble.append(el('div', { class: 'qa-answer' }, el('p', {},
       el('strong', { text: engine.NOT_FOUND }), el('br'),
       el('span', { class: 'qa-help', text: rec.checked
-        ? `Claude read all ${rec.checked} document${rec.checked === 1 ? '' : 's'} and found nothing relevant. If you know it’s there, try rephrasing or naming the file.`
-        : 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
+        ? `Claude read all ${rec.checked} document${rec.checked === 1 ? '' : 's'} and checked each one.${rec.missing ? ` ${rec.missing}` : ''}`
+        : rec.passages ? 'Only the best-matching passages were read. Set “Answer from” to Whole documents (Advanced settings) for a full check.'
+          : 'Try rephrasing, lowering “Minimum similarity” in Advanced settings, or adding the file that covers it.' }))));
+    if (rec.checks && rec.checks.length) {
+      bubble.append(el('div', { class: 'qa-checks' }, el('p', { class: 'qa-label', text: 'How I checked' }),
+        el('div', { class: 'qa-table-wrap' }, el('table', { class: 'qa-table' },
+          el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: 'Document' }), el('th', { scope: 'col', text: 'Why it can’t answer this' }))),
+          el('tbody', {}, rec.checks.map((c) => el('tr', {}, el('th', { scope: 'row', text: c.document }), el('td', { text: c.reason }))))))));
+    }
     if (rec.recorded) bubble.prepend(el('p', { class: 'qa-recorded', text: `Recorded answer · ${rec.recorded.model} · ${rec.recorded.date}` }));
     appendMeta(bubble, rec);
     appendReference(bubble, rec);

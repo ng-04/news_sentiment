@@ -589,12 +589,40 @@ export const CALC_TOOL = {
   },
 };
 
+export const NOT_FOUND_TOOL = {
+  name: 'report_not_found',
+  description: 'Use only after checking every listed document and finding that none contains the answer or lets you work it out '
+    + '(by counting, totalling, grouping or comparing what it states). Give one check per document, in the order listed; '
+    + 'if there are more than 15 documents, group similar ones.',
+  eager_input_streaming: true,
+  input_schema: {
+    type: 'object',
+    properties: {
+      checks: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            document: { type: 'string', description: 'File name as listed' },
+            reason: { type: 'string', description: 'One short sentence: what this document covers and why that can\'t answer the question' },
+          },
+          required: ['document', 'reason'],
+        },
+      },
+      missing: { type: 'string', description: 'One sentence: what information would be needed to answer' },
+    },
+    required: ['checks'],
+  },
+};
+
 export function buildPrompt(question, hits, history, settings, catalog = '', complete = false) {
   const grounding = settings.strict_grounding
     ? 'Answer only from the excerpts and never use outside knowledge. You may count, total, group, compare or summarise what '
       + 'the excerpts state (for example, counting reports by month from their dates). If the excerpts are relevant but '
       + 'don\'t fully answer the question, answer with what they do show and say what is missing. '
-      + `Only when nothing in the excerpts is relevant to the question, reply with exactly "${NOT_FOUND_PLAIN}" and nothing else.`
+      + 'Before concluding that something is not in the documents, go through every document in <chart_sources> one by one and '
+      + 'judge whether it contains the answer or lets you work it out; if any does, answer from it. Only if none does, call the '
+      + 'report_not_found tool with one check per document saying why it can\'t answer the question; don\'t write a refusal yourself.'
     : 'Prefer the excerpts. If they don\'t fully answer the question you may add general knowledge, but label that part clearly as not coming from the user\'s documents.';
   const system = 'You answer questions about the user\'s own documents using the numbered excerpts provided in their message. '
     + 'Cite every claim with the excerpt number in square brackets, like [2] or [1][3], placed right after the claim. '
@@ -699,6 +727,8 @@ export async function streamAnswer({ apiKey, workspaceId, model, system, message
       }
       const chart = final.content.find((b) => b.type === 'tool_use' && b.name === 'propose_chart');
       if (chart) return done(chart.input);
+      const none = final.content.find((b) => b.type === 'tool_use' && b.name === 'report_not_found');
+      if (none) return { ...done(), notFound: none.input };
       const asks = final.content.filter((b) => b.type === 'tool_use' && b.name === 'calculate');
       if (final.stop_reason !== 'tool_use' || !asks.length || !onCalculate) return done();
       const results = asks.map((call) => {
