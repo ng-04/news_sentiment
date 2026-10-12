@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>E-Logic BBA</title>
+  <meta name="description" content="E-Logic School of Business (a fictitious institution): the BBA programme, its handbook, curriculum, faculty and student data, and Ask E-Logic, a cited answer bot for students, parents, faculty and the Dean.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23e35a1b'/%3E%3Crect x='6.5' y='7' width='18' height='4' fill='white'/%3E%3Crect x='6.5' y='15' width='13' height='4' fill='white'/%3E%3Crect x='6.5' y='23' width='18' height='4' fill='white' transform='translate(0 -1)'/%3E%3Ccircle cx='24.5' cy='17' r='2.2' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z M4 21a2 2 0 0 1 2-2h13v2H6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.15a3.5 3.5 0 0 1 0 6.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z M8 9.5h8 M8 12.5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-case" viewBox="0 0 24 24"><path d="M4 8h16v11H4zM9 8V5h6v3M4 13h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.9V16h5v-.2c0-.8.4-1.5 1-1.9A6 6 0 0 0 12 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-handshake" viewBox="0 0 24 24"><path d="M3 12l4-4 4 2 3-2 7 5-3 3-3-2-2 2-2-1-3 2-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5L4 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6V3Z M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v5M16 3v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+</svg>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="utility">
+  <div class="wrap utility-row">
+    <span class="utility-note">A fictitious institution · demo built for the BBA programme</span>
+    <nav class="utility-links" aria-label="Quick links">
+      <a href="#handbook">Handbook</a>
+      <a href="#students">Student records</a>
+      <a href="#faculty">Faculty</a>
+      <a href="#ask" class="utility-cta">Ask E-Logic</a>
+    </nav>
+  </div>
+</div>
+
+<header class="masthead" id="masthead">
+  <div class="wrap masthead-row">
+    <a class="brand" href="#home" aria-label="E-Logic School of Business, home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b></b></span>
+      <span class="brand-text"><strong>E-Logic</strong><small>School of Business · Bengaluru</small></span>
+    </a>
+    <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="primary-nav" aria-label="Menu"><svg><use href="#i-menu"/></svg></button>
+    <nav class="primary-nav" id="primary-nav" aria-label="Main">
+      <a href="#home" data-route="home">Home</a>
+      <div class="has-mega">
+        <a href="#programme" data-route="programme">Programme <svg class="chev"><use href="#i-down"/></svg></a>
+        <div class="mega">
+          <div class="mega-col">
+            <h4>The BBA</h4>
+            <a href="#programme/overview">Programme at a glance</a>
+            <a href="#programme/pedagogy">Pedagogy</a>
+            <a href="#programme/outcomes">Programme outcomes</a>
+            <a href="#programme/assessment">Assessment and grading</a>
+          </div>
+          <div class="mega-col">
+            <h4>Specialisations</h4>
+            <a href="#curriculum/5">Marketing</a>
+            <a href="#curriculum/5">Finance</a>
+            <a href="#curriculum/5">Human Resources</a>
+            <a href="#curriculum/5">Business Analytics</a>
+          </div>
+          <div class="mega-feature">
+            <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=520&q=70&auto=format&fit=crop" alt="Students working on a project around a table" loading="lazy">
+            <p><strong>Learn it, try it, apply it.</strong> A third of class time goes on real business problems.</p>
+          </div>
+        </div>
+      </div>
+      <a href="#curriculum" data-route="curriculum">Curriculum</a>
+      <a href="#faculty" data-route="faculty">Faculty</a>
+      <a href="#students" data-route="students">Students</a>
+      <a href="#handbook" data-route="handbook">Handbook</a>
+      <a href="#ask" data-route="ask" class="nav-ask"><svg><use href="#i-chat"/></svg> Ask E-Logic</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- =============================================================== HOME -->
+<section class="view" data-view="home">
+  <div class="hero" id="hero">
+    <div class="hero-slide is-active" style="--img:url('https://images.unsplash.com/photo-1562774053-701939374585?w=1800&q=72&auto=format&fit=crop')">
+      <div class="wrap hero-copy">
+        <p class="eyebrow">Bachelor of Business Administration · 2026-27</p>
+        <h1>Where business is learnt by <em>doing</em>.</h1>
+        <p>A three-year BBA built on cases, studios, simulations and live consulting projects, in the heart of Bengaluru.</p>
+        <div class="hero-ctas"><a class="btn btn-primary" href="#programme">Explore the programme</a><a class="btn btn-ghost" href="#handbook">Read the handbook</a></div>
+      </div>
+    </div>
+    <div class="hero-slide" style="--img:url('https://images.unsplash.com/photo-1552664730-d307ca884978?w=1800&q=72&auto=format&fit=crop')">
+      <div class="wrap hero-copy">
+        <p class="eyebrow">Pedagogy</p>
+        <h1>Studios, simulations and <em>real clients</em>.</h1>
+        <p>Every student consults for a real organisation before graduating, through the Capstone Consulting Project.</p>
+        <div class="hero-ctas"><a class="btn btn-primary" href="#programme/pedagogy">How we teach</a><a class="btn btn-ghost" href="#curriculum">See the subjects</a></div>
+      </div>
+    </div>
+    <div class="hero-slide" style="--img:url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1800&q=72&auto=format&fit=crop')">
+      <div class="wrap hero-copy">
+        <p class="eyebrow">Ask E-Logic</p>
+        <h1>One question away from <em>every answer</em>.</h1>
+        <p>Students, parents, faculty and the Dean can ask about courses, credits, attendance, mentors and dates, with every answer cited.</p>
+        <div class="hero-ctas"><a class="btn btn-primary" href="#ask">Ask a question</a><a class="btn btn-ghost" href="#students">Browse the data</a></div>
+      </div>
+    </div>
+    <div class="hero-controls wrap">
+      <button class="hero-arrow" data-dir="-1" aria-label="Previous slide"><svg><use href="#i-left"/></svg></button>
+      <div class="hero-dots" role="tablist" aria-label="Slides"></div>
+      <button class="hero-arrow" data-dir="1" aria-label="Next slide"><svg><use href="#i-right"/></svg></button>
+    </div>
+  </div>
+
+  <div class="wrap quick">
+    <a href="#handbook" class="quick-tile"><svg><use href="#i-book"/></svg><span><strong>Student Handbook</strong><small>10 pages · 2026-27</small></span></a>
+    <a href="#curriculum" class="quick-tile"><svg><use href="#i-grid"/></svg><span><strong>Curriculum</strong><small id="q-subjects">Subjects and credits</small></span></a>
+    <a href="#faculty" class="quick-tile"><svg><use href="#i-users"/></svg><span><strong>Faculty</strong><small>Who teaches what</small></span></a>
+    <a href="#ask" class="quick-tile quick-tile-hot"><svg><use href="#i-chat"/></svg><span><strong>Ask E-Logic</strong><small>Cited answers in seconds</small></span></a>
+  </div>
+
+  <section class="band">
+    <div class="wrap split">
+      <div class="split-media">
+        <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=900&q=72&auto=format&fit=crop" alt="A seminar room with students facing a presenter" loading="lazy">
+        <div class="media-badge"><strong>2009</strong><span>founded</span></div>
+      </div>
+      <div>
+        <p class="kicker">About the programme</p>
+        <h2 class="title">A BBA designed backwards from what graduates can <span class="hl">do</span></h2>
+        <p class="lead">Years 1 and 2 build a broad foundation across management, economics, accounting, marketing, finance, people and analytics. In Year 3 every student specialises, completes a summer internship and consults for a real client.</p>
+        <ul class="ticks">
+          <li>Small sections of 20, so every student speaks, presents and gets feedback</li>
+          <li>Four specialisations: Marketing, Finance, Human Resources, Business Analytics</li>
+          <li>A faculty mentor for every student, and two Parent-Teacher Meetings a year</li>
+        </ul>
+        <a class="link-arrow" href="#programme">Programme at a glance <svg><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-band">
+    <div class="wrap stats" id="home-stats"></div>
+  </section>
+
+  <section class="band band-alt">
+    <div class="wrap">
+      <div class="section-head">
+        <div><p class="kicker">Pedagogy</p><h2 class="title">Learn it. Try it. Apply it.</h2></div>
+        <a class="link-arrow" href="#programme/pedagogy">How we teach <svg><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="cards-4">
+        <article class="feature"><span class="feature-icon"><svg><use href="#i-case"/></svg></span><h3>Case method</h3><p>Debate the decision a real manager faced, before learning the theory behind it.</p></article>
+        <article class="feature"><span class="feature-icon"><svg><use href="#i-bulb"/></svg></span><h3>Studios and workshops</h3><p>Design sprints, role plays and coding labs in groups of 20, at 30 sessions per credit.</p></article>
+        <article class="feature"><span class="feature-icon"><svg><use href="#i-chart"/></svg></span><h3>Business simulation</h3><p>Teams run a simulated company over eight rounds and compete on profit and market share.</p></article>
+        <article class="feature"><span class="feature-icon"><svg><use href="#i-handshake"/></svg></span><h3>Live consulting</h3><p>The Capstone Consulting Project puts students in front of a real client in Semester 6.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="section-head">
+        <div><p class="kicker">Year 3</p><h2 class="title">Choose your specialisation</h2></div>
+        <a class="link-arrow" href="#curriculum/5">Specialisation subjects <svg><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="cards-4" id="home-tracks"></div>
+    </div>
+  </section>
+
+  <section class="ask-band">
+    <div class="wrap ask-band-row">
+      <div>
+        <p class="kicker kicker-light">Ask E-Logic</p>
+        <h2 class="title title-light">One assistant for students, parents, faculty and the Dean</h2>
+        <p>Answers come only from the Student Handbook and the BBA master data, and every claim links to the page or spreadsheet row it came from.</p>
+      </div>
+      <div class="audience" id="home-audience"></div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="section-head">
+        <div><p class="kicker">Calendar</p><h2 class="title">News and events, 2026-27</h2></div>
+        <a class="link-arrow" href="#handbook">Full academic calendar <svg><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="events" id="home-events"></div>
+    </div>
+  </section>
+</section>
+
+<!-- =============================================================== PROGRAMME -->
+<section class="view" data-view="programme" hidden>
+  <div class="page-hero" style="--img:url('https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1800&q=70&auto=format&fit=crop')">
+    <div class="wrap"><p class="crumbs"><a href="#home">Home</a> / Programme</p><h1>Bachelor of Business Administration</h1><p>3 years · 6 semesters · <span data-total-credits>132</span> credits · 40 students a year</p></div>
+  </div>
+  <div class="wrap page-body">
+    <nav class="subnav" aria-label="On this page">
+      <a href="#programme/overview">At a glance</a><a href="#programme/pedagogy">Pedagogy</a><a href="#programme/structure">Credit framework</a><a href="#programme/assessment">Assessment</a><a href="#programme/outcomes">Outcomes</a>
+    </nav>
+
+    <section id="programme-overview" class="block">
+      <p class="kicker">Overview</p><h2 class="title">The BBA at a glance</h2>
+      <div class="facts">
+        <div><span>Degree</span><strong>BBA, awarded by E-Logic University</strong></div>
+        <div><span>Duration</span><strong>3 years, 6 semesters</strong></div>
+        <div><span>Credits</span><strong><span data-total-credits>132</span> (22 per semester)</strong></div>
+        <div><span>Intake</span><strong>40 a year, sections A and B</strong></div>
+        <div><span>Eligibility</span><strong>Class XII, 55% (50% SC/ST) + E-LAT + interview</strong></div>
+        <div><span>Tuition fee</span><strong>₹3,40,000 a year, in two instalments</strong></div>
+        <div><span>Attendance</span><strong>At least 75% in every subject</strong></div>
+        <div><span>Specialisations</span><strong>Marketing, Finance, HR, Business Analytics</strong></div>
+      </div>
+      <div class="timeline">
+        <div><b>Year 1</b><h3>Foundations</h3><p>Management, economics, accounting, mathematics, communication and digital tools, plus sustainability and community projects.</p></div>
+        <div><b>Year 2</b><h3>Business functions</h3><p>Marketing, finance, HR, law, operations and analytics; an open elective each semester; an 8-week summer internship.</p></div>
+        <div><b>Year 3</b><h3>Specialise and apply</h3><p>Strategy, ethics, international business and taxation; four specialisation subjects; Leadership Lab and Capstone.</p></div>
+      </div>
+    </section>
+
+    <section id="programme-pedagogy" class="block">
+      <p class="kicker">Pedagogy</p><h2 class="title">How we teach</h2>
+      <p class="lead">Roughly a third of class time is spent on concepts, a third on practice and a third on applying ideas to real organisations.</p>
+      <div class="cards-3">
+        <article class="feature"><h3>Case method</h3><p>Read a business case before class; debate the decision in class. Used most in Strategy, Marketing and Finance.</p></article>
+        <article class="feature"><h3>Flipped classroom</h3><p>Short videos and readings at home; class time for problems and discussion. Economics, Statistics, Accounting.</p></article>
+        <article class="feature"><h3>Workshops and studios</h3><p>Hands-on group sessions: role plays, design sprints, coding labs. Communication, Design Thinking, Analytics.</p></article>
+        <article class="feature"><h3>Business simulation</h3><p>Teams run a simulated company over eight rounds in the Semester 4 Business Simulation Workshop.</p></article>
+        <article class="feature"><h3>Live projects</h3><p>Briefs from partner companies, start-ups and NGOs, with a final presentation to the client.</p></article>
+        <article class="feature"><h3>Mentoring</h3><p>Every student has a faculty mentor (about ten mentees each) who meets them monthly and talks to parents.</p></article>
+      </div>
+      <h3 class="subtitle">Sessions per credit</h3>
+      <p>One session is a 60-minute contact hour. Practice-heavy subjects need more contact time per credit.</p>
+      <div class="pills-row">
+        <div class="pill-stat"><strong>15</strong><span>sessions per credit<br>Exam (lecture-based)</span></div>
+        <div class="pill-stat"><strong>30</strong><span>sessions per credit<br>Workshop (studio / lab)</span></div>
+        <div class="pill-stat"><strong>20</strong><span>sessions per credit<br>Project (mentored)</span></div>
+      </div>
+    </section>
+
+    <section id="programme-structure" class="block">
+      <p class="kicker">Programme structure</p><h2 class="title">Credit framework</h2>
+      <div class="table-card"><table class="dt" id="structure-table"></table></div>
+    </section>
+
+    <section id="programme-assessment" class="block">
+      <p class="kicker">Assessment</p><h2 class="title">How students are evaluated</h2>
+      <div class="cards-3">
+        <article class="feature feature-line"><h3>Exam</h3><p><strong>40% internal</strong> (two quizzes 10%, assignment 10%, mid-term 20%) + <strong>60% end-term</strong> exam of 3 hours.</p></article>
+        <article class="feature feature-line"><h3>Workshop</h3><p><strong>100% continuous:</strong> studio exercises 50%, participation and peer review 20%, final showcase 30%.</p></article>
+        <article class="feature feature-line"><h3>Project</h3><p><strong>50% internal</strong> (proposal, milestones, mentor) + <strong>50%</strong> final report and viva.</p></article>
+      </div>
+      <h3 class="subtitle">Grading scale</h3>
+      <div class="grades">
+        <div><b>O</b><span>90-100</span><i>10</i></div><div><b>A+</b><span>80-89</span><i>9</i></div><div><b>A</b><span>70-79</span><i>8</i></div><div><b>B+</b><span>60-69</span><i>7</i></div>
+        <div><b>B</b><span>55-59</span><i>6</i></div><div><b>C</b><span>50-54</span><i>5</i></div><div><b>P</b><span>40-49</span><i>4</i></div><div class="grade-f"><b>F</b><span>&lt; 40</span><i>0</i></div>
+      </div>
+    </section>
+
+    <section id="programme-outcomes" class="block">
+      <p class="kicker">Outcomes</p><h2 class="title">What our graduates can do</h2>
+      <ol class="outcomes">
+        <li><b>PO1</b><div><h3>Business knowledge</h3><p>Apply concepts of management, economics, accounting, marketing, finance and HR to business situations.</p></div></li>
+        <li><b>PO2</b><div><h3>Critical thinking</h3><p>Analyse problems with data and evidence and recommend sound decisions.</p></div></li>
+        <li><b>PO3</b><div><h3>Communication</h3><p>Write, present and negotiate clearly and persuasively.</p></div></li>
+        <li><b>PO4</b><div><h3>Leadership and teamwork</h3><p>Lead and work in diverse teams, giving and taking feedback.</p></div></li>
+        <li><b>PO5</b><div><h3>Ethics and sustainability</h3><p>Act responsibly towards stakeholders, society and the environment.</p></div></li>
+        <li><b>PO6</b><div><h3>Digital fluency</h3><p>Use spreadsheets, analytics and digital platforms to run and improve a business.</p></div></li>
+        <li><b>PO7</b><div><h3>Entrepreneurial mindset</h3><p>Spot opportunities, test ideas and build ventures; keep learning.</p></div></li>
+      </ol>
+    </section>
+  </div>
+</section>
+
+<!-- =============================================================== CURRICULUM -->
+<section class="view" data-view="curriculum" hidden>
+  <div class="page-hero" style="--img:url('https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1800&q=70&auto=format&fit=crop')">
+    <div class="wrap"><p class="crumbs"><a href="#home">Home</a> / Curriculum</p><h1>Curriculum Master</h1><p>Every subject, its credits, sessions, type, assessment and faculty for 2026-27.</p></div>
+  </div>
+  <div class="wrap page-body">
+    <div class="toolbar">
+      <div class="seg" id="sem-tabs" role="tablist" aria-label="Semester"></div>
+      <label class="select"><span>Type</span><select id="cur-type"><option value="">All</option><option>Core</option><option>Elective</option></select></label>
+      <label class="select"><span>Assessment</span><select id="cur-assess"><option value="">All</option><option>Exam</option><option>Workshop</option><option>Project</option></select></label>
+    </div>
+    <div class="kpis" id="cur-kpis"></div>
+    <div class="table-card"><table class="dt" id="cur-table"></table></div>
+    <p class="fine">Source: Curriculum Master sheet of the <a href="docs/E-Logic_BBA_Master_Data_2026-27.xlsx" download>BBA master data workbook</a>.</p>
+  </div>
+</section>
+
+<!-- =============================================================== FACULTY -->
+<section class="view" data-view="faculty" hidden>
+  <div class="page-hero" style="--img:url('https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1800&q=70&auto=format&fit=crop')">
+    <div class="wrap"><p class="crumbs"><a href="#home">Home</a> / Faculty</p><h1>Faculty Master</h1><p>Twenty faculty members: full-time professors, professors of practice and visiting faculty.</p></div>
+  </div>
+  <div class="wrap page-body">
+    <div class="toolbar">
+      <label class="search"><svg><use href="#i-search"/></svg><input id="fac-q" type="search" placeholder="Search by name, area or subject" aria-label="Search faculty"></label>
+      <label class="select"><span>Area</span><select id="fac-area"><option value="">All areas</option></select></label>
+    </div>
+    <div class="people" id="fac-grid"></div>
+    <h2 class="title title-sm">Teaching assignments, 2026-27</h2>
+    <div class="table-card"><table class="dt" id="fac-table"></table></div>
+  </div>
+</section>
+
+<!-- =============================================================== STUDENTS -->
+<section class="view" data-view="students" hidden>
+  <div class="page-hero" style="--img:url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1800&q=70&auto=format&fit=crop')">
+    <div class="wrap"><p class="crumbs"><a href="#home">Home</a> / Students</p><h1>Student Master</h1><p>120 students across three batches. All names and details are made up for this demo.</p></div>
+  </div>
+  <div class="wrap page-body">
+    <div class="kpis" id="stu-kpis"></div>
+    <div class="split-2">
+      <div class="panel"><h3>Students by home state</h3><div class="hbars" id="stu-states"></div></div>
+      <div class="panel"><h3>Year 3 specialisations</h3><div class="hbars" id="stu-tracks"></div><h3 class="mt">Attendance below 75%</h3><div id="stu-risk"></div></div>
+    </div>
+    <div class="toolbar">
+      <label class="search"><svg><use href="#i-search"/></svg><input id="stu-q" type="search" placeholder="Search name, ID, parent, city or mentor" aria-label="Search students"></label>
+      <label class="select"><span>Batch</span><select id="stu-batch"><option value="">All batches</option></select></label>
+      <label class="select"><span>State</span><select id="stu-state"><option value="">All states</option></select></label>
+    </div>
+    <div class="table-card table-scroll"><table class="dt dt-compact" id="stu-table"></table></div>
+    <p class="fine" id="stu-count"></p>
+  </div>
+</section>
+
+<!-- =============================================================== HANDBOOK -->
+<section class="view" data-view="handbook" hidden>
+  <div class="page-hero" style="--img:url('https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1800&q=70&auto=format&fit=crop')">
+    <div class="wrap"><p class="crumbs"><a href="#home">Home</a> / Handbook</p><h1>Documents</h1><p>The two documents behind this site and behind every answer from Ask E-Logic.</p></div>
+  </div>
+  <div class="wrap page-body">
+    <div class="docs">
+      <article class="doc-card">
+        <div class="doc-cover doc-cover-pdf"><span>PDF</span><strong>BBA Student Handbook</strong><small>2026-27 · 10 pages</small></div>
+        <div class="doc-body">
+          <h3>BBA Student Handbook 2026-27</h3>
+          <p>Welcome from the Dean, programme overview, pedagogy, credit framework, all subjects, assessment and grading, outcomes, academic calendar and key contacts.</p>
+          <div class="doc-actions"><a class="btn btn-primary" href="docs/E-Logic_BBA_Student_Handbook_2026-27.pdf" target="_blank" rel="noopener">Open</a><a class="btn btn-outline" href="docs/E-Logic_BBA_Student_Handbook_2026-27.pdf" download><svg><use href="#i-download"/></svg> Download</a></div>
+        </div>
+      </article>
+      <article class="doc-card">
+        <div class="doc-cover doc-cover-xls"><span>XLSX</span><strong>BBA Master Data</strong><small>3 sheets</small></div>
+        <div class="doc-body">
+          <h3>BBA Master Data 2026-27</h3>
+          <p><b>Curriculum Master</b>: academic year, subject, credits, sessions per credit, type, assessment. <b>Student Master</b>: student, parent, home state, date of admission and more. <b>Faculty Master</b>: prof name, semester, subject.</p>
+          <div class="doc-actions"><a class="btn btn-outline" href="docs/E-Logic_BBA_Master_Data_2026-27.xlsx" download><svg><use href="#i-download"/></svg> Download</a></div>
+        </div>
+      </article>
+    </div>
+    <div class="pdf-frame"><iframe src="docs/E-Logic_BBA_Student_Handbook_2026-27.pdf#view=FitH" title="BBA Student Handbook 2026-27" loading="lazy"></iframe></div>
+  </div>
+</section>
+
+<!-- =============================================================== ASK -->
+<section class="view" data-view="ask" hidden>
+  <div class="ask-head">
+    <div class="wrap ask-head-row">
+      <div>
+        <p class="crumbs crumbs-light"><a href="#home">Home</a> / Ask E-Logic</p>
+        <h1>Ask E-Logic</h1>
+        <p>Answers about the BBA from the Student Handbook and the master data, with a citation for every claim.</p>
+      </div>
+      <div class="kb" id="kb">
+        <div class="kb-row"><svg><use href="#i-file"/></svg><span>E-Logic_BBA_Student_Handbook_2026-27.pdf</span><em data-kb="pdf">waiting</em></div>
+        <div class="kb-row"><svg><use href="#i-file"/></svg><span>E-Logic_BBA_Master_Data_2026-27.xlsx</span><em data-kb="xlsx">waiting</em></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap ask-layout">
+    <aside class="ask-side">
+      <div class="panel">
+        <h3>Your Anthropic API key</h3>
+        <p class="help">The bot runs in your browser and calls Claude directly with your key. It is never sent anywhere else.</p>
+        <label class="field"><span>API key</span><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
+        <label class="check"><input type="checkbox" id="remember-key"> Remember on this device</label>
+        <label class="field"><span>Model</span><select id="model"></select></label>
+        <div class="row-gap"><button class="btn btn-outline btn-sm" id="test-key" type="button">Test key</button><span class="help" id="key-status" role="status"></span></div>
+        <details class="ws"><summary>Workspace ID (only if Anthropic asks)</summary><label class="field"><span>Workspace ID</span><input id="workspace" type="text" autocomplete="off" spellcheck="false" placeholder="wrkspc_…"></label></details>
+      </div>
+      <div class="panel">
+        <h3>How it answers</h3>
+        <ul class="ticks ticks-sm">
+          <li>Reads the whole handbook and all three master sheets for every question</li>
+          <li>Counts, totals and averages are computed by the page from the spreadsheet, exactly</li>
+          <li>Says so when the documents don't contain the answer</li>
+          <li>Asks before drawing any chart</li>
+        </ul>
+      </div>
+    </aside>
+
+    <div class="chat">
+      <div class="chat-bar" id="chat-bar" hidden>
+        <button class="btn-link chat-back" id="chat-back" type="button"><svg><use href="#i-left"/></svg> Back</button>
+        <span class="chat-bar-title" id="chat-bar-title">Conversation</span>
+        <button class="btn btn-outline btn-sm" id="new-chat" type="button">New chat</button>
+      </div>
+      <div class="chat-log" id="chat-log" aria-live="polite">
+        <div class="chat-welcome" id="chat-welcome">
+          <span class="bot-avatar" aria-hidden="true"><i></i><i></i><i></i><b></b></span>
+          <div>
+            <h2>Hello! What would you like to know about the BBA?</h2>
+            <p>Pick a question to start, or type your own below.</p>
+          </div>
+          <button class="resume" id="resume-chat" type="button" hidden><svg><use href="#i-chat"/></svg><span><strong>Return to your conversation</strong><small id="resume-count"></small></span><svg><use href="#i-arrow"/></svg></button>
+          <div class="starter" id="starters"></div>
+        </div>
+        <div class="chat-thread" id="chat-thread" hidden></div>
+      </div>
+      <p class="chat-status" id="chat-status" role="status" hidden></p>
+      <form class="composer" id="composer">
+        <textarea id="question" rows="1" placeholder="Ask about subjects, credits, students, faculty, dates…" aria-label="Your question"></textarea>
+        <button class="btn btn-primary send" id="send" type="submit" aria-label="Send"><svg><use href="#i-send"/></svg></button>
+      </form>
+      <p class="fine center">Answers come only from the two documents. Data is fictitious. Check important details with the programme office.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<a class="fab" href="#ask" id="fab" aria-label="Ask E-Logic"><svg><use href="#i-chat"/></svg><span>Ask E-Logic</span></a>
+
+<footer class="footer">
+  <div class="wrap footer-grid">
+    <div>
+      <a class="brand brand-light" href="#home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b></b></span><span class="brand-text"><strong>E-Logic</strong><small>School of Business · Bengaluru</small></span></a>
+      <p>E-Logic School of Business is a fictitious institution created for this demo. Every name, number and date on this site is made up.</p>
+    </div>
+    <div><h4>Programme</h4><a href="#programme/overview">At a glance</a><a href="#programme/pedagogy">Pedagogy</a><a href="#programme/assessment">Assessment</a><a href="#programme/outcomes">Outcomes</a></div>
+    <div><h4>Data</h4><a href="#curriculum">Curriculum Master</a><a href="#students">Student Master</a><a href="#faculty">Faculty Master</a><a href="#handbook">Documents</a></div>
+    <div><h4>Contact</h4><p>Programme Office, BBA<br>bba.office@elogic.example.edu<br>Mon-Sat, 9:00-17:00</p></div>
+  </div>
+  <div class="wrap footer-base"><span>© 2026 E-Logic School of Business (fictitious)</span><span>All data on this site is made up</span></div>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
